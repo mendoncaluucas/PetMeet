@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 # Cancela execucoes antigas do mesmo branch/PR quando chega um commit novo
@@ -121,8 +121,9 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
+          # latest acompanha a main, nao a branch padrao (que e a develop)
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha
             type=ref,event=pr
 
@@ -146,7 +147,7 @@ jobs:
           exit 1
 
       - name: Login no GHCR
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -154,7 +155,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publicar imagem
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v7
         with:
           context: .
