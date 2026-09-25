@@ -135,7 +135,13 @@ alembic upgrade head
 
 # desfazer a ultima migration
 alembic downgrade -1
+
+# conferir se os modelos e as migrations batem (o CI roda e falha se divergirem)
+alembic check
 ```
+
+Revise o arquivo gerado pelo `--autogenerate` antes do commit: ele traz toda
+diferenca entre modelos e banco, nao so a mudanca pretendida.
 
 ## Autenticacao
 
