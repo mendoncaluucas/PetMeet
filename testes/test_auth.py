@@ -75,3 +75,50 @@ async def test_criar_pet_sem_perfil_autorizado_retorna_403(
         "/pets", json=dados_pet_saudavel, headers={"Authorization": f"Bearer {token}"}
     )
     assert resposta.status_code == 401
+
+
+async def test_login_com_senha_acima_de_72_bytes_retorna_401(
+    client: AsyncClient, sessao: AsyncSession
+) -> None:
+    """DEF-07: o bcrypt 5 lanca ValueError acima de 72 bytes -- o login respondia 500."""
+    sessao.add(
+        Usuario(
+            nome="Ana",
+            email="ana3@petmeet.org.br",
+            senha_hash=gerar_hash_senha("senha-correta-123"),
+            perfil=PerfilUsuario.ADMIN,
+        )
+    )
+    await sessao.commit()
+
+    resposta = await client.post(
+        "/auth/login", data={"username": "ana3@petmeet.org.br", "password": "a" * 80}
+    )
+
+    assert resposta.status_code == 401
+
+
+def _novo_usuario(senha: str) -> dict:
+    return {"nome": "Beto", "email": "beto@petmeet.org.br", "senha": senha, "perfil": "voluntario"}
+
+
+async def test_criar_usuario_com_senha_acima_de_72_bytes_e_rejeitado(
+    client: AsyncClient, cabecalho_admin: dict
+) -> None:
+    resposta = await client.post("/usuarios", json=_novo_usuario("a" * 73), headers=cabecalho_admin)
+    assert resposta.status_code == 422
+
+
+async def test_criar_usuario_com_senha_de_72_bytes_e_aceito(
+    client: AsyncClient, cabecalho_admin: dict
+) -> None:
+    resposta = await client.post("/usuarios", json=_novo_usuario("a" * 72), headers=cabecalho_admin)
+    assert resposta.status_code == 201
+
+
+async def test_senha_acentuada_conta_bytes_e_nao_caracteres(
+    client: AsyncClient, cabecalho_admin: dict
+) -> None:
+    # 37 caracteres, mas 74 bytes: cada "ç" ocupa 2 bytes em UTF-8.
+    resposta = await client.post("/usuarios", json=_novo_usuario("ç" * 37), headers=cabecalho_admin)
+    assert resposta.status_code == 422
