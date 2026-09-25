@@ -69,6 +69,9 @@ jobs:
       - name: Aplicar migrations (valida o Alembic)
         run: alembic upgrade head
 
+      - name: Conferir se modelos e migrations batem
+        run: alembic check
+
       - name: Pytest
         run: pytest -v
 
