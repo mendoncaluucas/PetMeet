@@ -10,12 +10,13 @@ import asyncio
 from datetime import date
 
 from httpx import AsyncClient
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RegraNegocioError
 from app.esquemas.processo_adocao import ProcessoAdocaoAtualizarStatus
 from app.modelos.adotante import Adotante
-from app.modelos.enums import StatusProcessoAdocao
+from app.modelos.enums import SituacaoAdocaoPet, StatusProcessoAdocao
 from app.modelos.pet import Pet
 from app.modelos.processo_adocao import ProcessoAdocao
 from app.servicos import processo_adocao as servico_processo
@@ -219,3 +220,73 @@ async def test_finalizacao_concorrente_do_mesmo_pet_apenas_uma_vence(sessao: Asy
     resultados = await asyncio.gather(_finalizar(id_processo1), _finalizar(id_processo2))
 
     assert sorted(resultados) == ["rejeitado", "sucesso"]
+
+
+async def _esperar_bloqueadas(quantidade: int) -> None:
+    """Espera ate `quantidade` conexoes estarem paradas esperando uma trava de linha.
+
+    Consulta numa sessao nova a cada volta: dentro de uma mesma transacao o
+    pg_stat_activity devolve sempre o mesmo retrato.
+    """
+    for _ in range(100):
+        async with FabricaSessaoTeste() as consulta:
+            bloqueadas = await consulta.scalar(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity "
+                    "WHERE wait_event_type = 'Lock' AND datname = current_database()"
+                )
+            )
+        if bloqueadas >= quantidade:
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"esperava {quantidade} conexoes bloqueadas, vieram {bloqueadas}")
+
+
+async def test_cancelar_e_finalizar_o_mesmo_processo_ao_mesmo_tempo_apenas_um_vence(
+    sessao: AsyncSession,
+) -> None:
+    """DEF-06: cancelar e finalizar o MESMO processo ao mesmo tempo -- so um pode vencer.
+
+    Em sequencia, a segunda mudanca e recusada porque o processo ja esta encerrado.
+    Para reproduzir a corrida de forma deterministica, uma terceira conexao segura a
+    trava do pet enquanto as duas requisicoes leem o processo; so depois de as duas
+    estarem paradas na trava ela e liberada.
+    """
+    pet = await _criar_pet(sessao, situacao_adocao="em_processo_adocao")
+    adotante = await _criar_adotante(sessao, "99999999991")
+    processo = ProcessoAdocao(
+        pet_id=pet.id, adotante_id=adotante.id, status=StatusProcessoAdocao.EM_ANALISE
+    )
+    sessao.add(processo)
+    await sessao.commit()
+
+    async def _mudar_status(novo: StatusProcessoAdocao) -> str:
+        async with FabricaSessaoTeste() as sessao_local:
+            try:
+                await servico_processo.atualizar_status_processo(
+                    sessao_local, processo.id, ProcessoAdocaoAtualizarStatus(status=novo)
+                )
+                return "sucesso"
+            except (RegraNegocioError, ConflitoError):
+                return "rejeitado"
+
+    async with FabricaSessaoTeste() as trava:
+        await trava.execute(select(Pet).where(Pet.id == pet.id).with_for_update())
+        tarefas = [
+            asyncio.create_task(_mudar_status(StatusProcessoAdocao.CANCELADO)),
+            asyncio.create_task(_mudar_status(StatusProcessoAdocao.FINALIZADO)),
+        ]
+        await _esperar_bloqueadas(2)
+        await trava.rollback()
+    resultados = await asyncio.gather(*tarefas)
+
+    assert sorted(resultados) == ["rejeitado", "sucesso"]
+
+    async with FabricaSessaoTeste() as leitura:
+        final = await leitura.get(ProcessoAdocao, processo.id)
+        pet_final = await leitura.get(Pet, pet.id)
+    esperado = {
+        StatusProcessoAdocao.CANCELADO: SituacaoAdocaoPet.DISPONIVEL,
+        StatusProcessoAdocao.FINALIZADO: SituacaoAdocaoPet.ADOTADO,
+    }
+    assert pet_final.situacao_adocao == esperado[final.status]
