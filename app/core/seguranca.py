@@ -10,6 +10,14 @@ from app.core.config import obter_configuracoes
 
 configuracoes = obter_configuracoes()
 
+# O bcrypt so aceita ate 72 bytes de senha -- e a partir da versao 5.0 lanca ValueError
+# acima disso, em vez de truncar. O limite e em bytes: letras acentuadas ocupam 2.
+LIMITE_BYTES_SENHA = 72
+
+
+def senha_cabe_no_bcrypt(senha: str) -> bool:
+    return len(senha.encode("utf-8")) <= LIMITE_BYTES_SENHA
+
 
 def gerar_hash_senha(senha: str) -> str:
     """Gera o hash bcrypt da senha em texto puro. Nunca armazenar a senha original."""
@@ -17,6 +25,10 @@ def gerar_hash_senha(senha: str) -> str:
 
 
 def verificar_senha(senha: str, senha_hash: str) -> bool:
+    # Nenhum hash guardado veio de senha acima do limite (o cadastro recusa), entao
+    # uma senha assim nunca confere -- e responder False evita o ValueError do bcrypt.
+    if not senha_cabe_no_bcrypt(senha):
+        return False
     return bcrypt.checkpw(senha.encode("utf-8"), senha_hash.encode("utf-8"))
 
 
