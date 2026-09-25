@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.esquemas.comuns import ValidacaoCpfNoCadastro
+
 
 class PadrinhoBase(BaseModel):
     nome: str = Field(..., min_length=2, max_length=150)
@@ -19,7 +21,7 @@ class PadrinhoBase(BaseModel):
         return valor
 
 
-class PadrinhoCriar(PadrinhoBase):
+class PadrinhoCriar(PadrinhoBase, ValidacaoCpfNoCadastro):
     pass
 
 

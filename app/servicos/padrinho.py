@@ -6,14 +6,16 @@ from app.core.excecoes import RecursoNaoEncontradoError, RegraNegocioError
 from app.esquemas.padrinho import PadrinhoAtualizar, PadrinhoCriar
 from app.modelos.padrinho import Padrinho
 from app.repositorios import padrinho as repo_padrinho
+from app.servicos.unicidade import gravar_sem_duplicar
 
 
 async def criar_padrinho(sessao: AsyncSession, dados: PadrinhoCriar) -> Padrinho:
+    duplicado = f"Ja existe um padrinho cadastrado com o cpf {dados.cpf}."
     if await repo_padrinho.obter_por_cpf(sessao, dados.cpf) is not None:
-        raise RegraNegocioError(f"Ja existe um padrinho cadastrado com o cpf {dados.cpf}.")
+        raise RegraNegocioError(duplicado)
 
     padrinho = Padrinho(**dados.model_dump())
-    return await repo_padrinho.criar(sessao, padrinho)
+    return await gravar_sem_duplicar(sessao, repo_padrinho.criar(sessao, padrinho), duplicado)
 
 
 async def obter_padrinho_ou_falhar(sessao: AsyncSession, padrinho_id: int) -> Padrinho:

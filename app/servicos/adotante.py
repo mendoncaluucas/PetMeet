@@ -6,14 +6,16 @@ from app.core.excecoes import RecursoNaoEncontradoError, RegraNegocioError
 from app.esquemas.adotante import AdotanteAtualizar, AdotanteCriar
 from app.modelos.adotante import Adotante
 from app.repositorios import adotante as repo_adotante
+from app.servicos.unicidade import gravar_sem_duplicar
 
 
 async def criar_adotante(sessao: AsyncSession, dados: AdotanteCriar) -> Adotante:
+    duplicado = f"Ja existe um adotante cadastrado com o cpf {dados.cpf}."
     if await repo_adotante.obter_por_cpf(sessao, dados.cpf) is not None:
-        raise RegraNegocioError(f"Ja existe um adotante cadastrado com o cpf {dados.cpf}.")
+        raise RegraNegocioError(duplicado)
 
     adotante = Adotante(**dados.model_dump())
-    return await repo_adotante.criar(sessao, adotante)
+    return await gravar_sem_duplicar(sessao, repo_adotante.criar(sessao, adotante), duplicado)
 
 
 async def obter_adotante_ou_falhar(sessao: AsyncSession, adotante_id: int) -> Adotante:

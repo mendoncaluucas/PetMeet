@@ -7,11 +7,13 @@ from app.core.seguranca import gerar_hash_senha
 from app.esquemas.usuario import UsuarioCriar
 from app.modelos.usuario import Usuario
 from app.repositorios import usuario as repo_usuario
+from app.servicos.unicidade import gravar_sem_duplicar
 
 
 async def criar_usuario(sessao: AsyncSession, dados: UsuarioCriar) -> Usuario:
+    duplicado = f"Ja existe um usuario cadastrado com o email {dados.email}."
     if await repo_usuario.obter_por_email(sessao, dados.email) is not None:
-        raise RegraNegocioError(f"Ja existe um usuario cadastrado com o email {dados.email}.")
+        raise RegraNegocioError(duplicado)
 
     usuario = Usuario(
         nome=dados.nome,
@@ -19,4 +21,4 @@ async def criar_usuario(sessao: AsyncSession, dados: UsuarioCriar) -> Usuario:
         senha_hash=gerar_hash_senha(dados.senha),
         perfil=dados.perfil,
     )
-    return await repo_usuario.criar(sessao, usuario)
+    return await gravar_sem_duplicar(sessao, repo_usuario.criar(sessao, usuario), duplicado)
