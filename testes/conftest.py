@@ -5,11 +5,13 @@ regras criticas do PetMeet (RN01, RN02, RNF18) dependem de constraints e locks
 reais do banco, que um mock nao reproduziria com fidelidade.
 """
 
+import asyncio
 from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import obter_configuracoes
@@ -24,6 +26,28 @@ configuracoes = obter_configuracoes()
 
 engine_teste = create_async_engine(configuracoes.DATABASE_URL_TESTE)
 FabricaSessaoTeste = async_sessionmaker(bind=engine_teste, expire_on_commit=False)
+
+
+async def esperar_conexoes_bloqueadas(quantidade: int) -> None:
+    """Espera ate `quantidade` conexoes estarem paradas esperando uma trava do banco.
+
+    Usado para reproduzir corridas de forma deterministica. Consulta numa sessao nova a
+    cada volta: dentro de uma mesma transacao o pg_stat_activity devolve sempre o mesmo
+    retrato.
+    """
+    bloqueadas = 0
+    for _ in range(100):
+        async with FabricaSessaoTeste() as consulta:
+            bloqueadas = await consulta.scalar(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity "
+                    "WHERE wait_event_type = 'Lock' AND datname = current_database()"
+                )
+            )
+        if bloqueadas >= quantidade:
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"esperava {quantidade} conexoes bloqueadas, vieram {bloqueadas}")
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)

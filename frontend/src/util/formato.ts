@@ -122,6 +122,20 @@ export function formatarCpf(cpf: string): string {
 }
 
 /**
+ * Mesma conta de app/esquemas/comuns.py::cpf_valido: confere os dois digitos
+ * verificadores e recusa sequencias repetidas. Recebe so os digitos.
+ */
+export function cpfValido(digitos: string): boolean {
+  if (!/^\d{11}$/.test(digitos) || /^(\d)\1{10}$/.test(digitos)) return false
+  for (const tamanho of [9, 10]) {
+    let soma = 0
+    for (let i = 0; i < tamanho; i++) soma += Number(digitos[i]) * (tamanho + 1 - i)
+    if (((soma * 10) % 11) % 10 !== Number(digitos[tamanho])) return false
+  }
+  return true
+}
+
+/**
  * CPF oculto por padrao (RN07/RNF03/RNF04): a tela mostra so o suficiente para
  * conferir de qual pessoa se trata, e o numero inteiro aparece sob pedido.
  */

@@ -14,7 +14,13 @@ import {
   Selo,
   Sobreposicao,
 } from '../componentes/Interface'
-import { TIPOS_DOACAO, formatarData, formatarMoeda, formatarTelefone } from '../util/formato'
+import {
+  TIPOS_DOACAO,
+  cpfValido,
+  formatarData,
+  formatarMoeda,
+  formatarTelefone,
+} from '../util/formato'
 import { useRequisicao } from '../util/useRequisicao'
 
 const TAMANHO_PAGINA = 20
@@ -179,8 +185,8 @@ function FormularioPadrinho({ padrinho, aoFechar, aoSalvar }: FormularioProps) {
     setErro(null)
     setErrosCampo({})
 
-    if (!editando && cpf.length !== 11) {
-      setErrosCampo({ cpf: 'O CPF precisa ter 11 dígitos, só números.' })
+    if (!editando && !cpfValido(cpf)) {
+      setErrosCampo({ cpf: 'CPF inválido: confira os dígitos.' })
       return
     }
 
@@ -227,11 +233,11 @@ function FormularioPadrinho({ padrinho, aoFechar, aoSalvar }: FormularioProps) {
             rotulo="CPF"
             required
             inputMode="numeric"
-            maxLength={11}
+            maxLength={14}
             value={cpf}
             erro={errosCampo.cpf}
-            dica="Só números, sem pontos nem traço."
-            onChange={(evento) => setCpf(evento.target.value.replace(/\D/g, ''))}
+            dica="Pode digitar ou colar com pontos e traço."
+            onChange={(evento) => setCpf(evento.target.value.replace(/\D/g, '').slice(0, 11))}
           />
         )}
 
