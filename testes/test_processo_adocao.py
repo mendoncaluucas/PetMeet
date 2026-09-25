@@ -10,7 +10,7 @@ import asyncio
 from datetime import date
 
 from httpx import AsyncClient
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RegraNegocioError
@@ -20,7 +20,7 @@ from app.modelos.enums import SituacaoAdocaoPet, StatusProcessoAdocao
 from app.modelos.pet import Pet
 from app.modelos.processo_adocao import ProcessoAdocao
 from app.servicos import processo_adocao as servico_processo
-from testes.conftest import FabricaSessaoTeste
+from testes.conftest import FabricaSessaoTeste, esperar_conexoes_bloqueadas
 
 
 async def _criar_pet(sessao: AsyncSession, **sobrescritas) -> Pet:
@@ -222,26 +222,6 @@ async def test_finalizacao_concorrente_do_mesmo_pet_apenas_uma_vence(sessao: Asy
     assert sorted(resultados) == ["rejeitado", "sucesso"]
 
 
-async def _esperar_bloqueadas(quantidade: int) -> None:
-    """Espera ate `quantidade` conexoes estarem paradas esperando uma trava de linha.
-
-    Consulta numa sessao nova a cada volta: dentro de uma mesma transacao o
-    pg_stat_activity devolve sempre o mesmo retrato.
-    """
-    for _ in range(100):
-        async with FabricaSessaoTeste() as consulta:
-            bloqueadas = await consulta.scalar(
-                text(
-                    "SELECT count(*) FROM pg_stat_activity "
-                    "WHERE wait_event_type = 'Lock' AND datname = current_database()"
-                )
-            )
-        if bloqueadas >= quantidade:
-            return
-        await asyncio.sleep(0.05)
-    raise AssertionError(f"esperava {quantidade} conexoes bloqueadas, vieram {bloqueadas}")
-
-
 async def test_cancelar_e_finalizar_o_mesmo_processo_ao_mesmo_tempo_apenas_um_vence(
     sessao: AsyncSession,
 ) -> None:
@@ -276,7 +256,7 @@ async def test_cancelar_e_finalizar_o_mesmo_processo_ao_mesmo_tempo_apenas_um_ve
             asyncio.create_task(_mudar_status(StatusProcessoAdocao.CANCELADO)),
             asyncio.create_task(_mudar_status(StatusProcessoAdocao.FINALIZADO)),
         ]
-        await _esperar_bloqueadas(2)
+        await esperar_conexoes_bloqueadas(2)
         await trava.rollback()
     resultados = await asyncio.gather(*tarefas)
 
