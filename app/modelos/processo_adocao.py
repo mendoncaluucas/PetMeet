@@ -8,6 +8,10 @@ em duas camadas independentes:
      no pet antes de finalizar, cobrindo a corrida entre duas requisicoes concorrentes
      (RNF18): a segunda requisicao, ao tentar commitar, esbarra nesse indice e recebe
      um erro tratado como ConflitoError (409).
+
+Um pet tambem so pode ter UM processo ativo (em analise ou aprovado) por vez: a
+situacao de adocao do pet e consequencia desse processo, e dois ativos deixariam o
+pet 'disponivel' ou 'adotado' conforme a ordem em que fossem encerrados (DEF-04).
 """
 
 from datetime import datetime
@@ -32,6 +36,12 @@ class ProcessoAdocao(Base):
             "pet_id",
             unique=True,
             postgresql_where="status = 'finalizado'",
+        ),
+        Index(
+            "uq_processo_adocao_pet_ativo",
+            "pet_id",
+            unique=True,
+            postgresql_where="status IN ('em_analise', 'aprovado')",
         ),
         Index("ix_processos_adocao_status", "status"),
     )

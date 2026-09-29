@@ -15,13 +15,37 @@ from app.modelos.processo_adocao import ProcessoAdocao
 from app.repositorios import adotante as repo_adotante
 from app.repositorios import pet as repo_pet
 from app.repositorios import processo_adocao as repo_processo
+from app.servicos.unicidade import gravar_sem_duplicar
 
 _STATUS_ENCERRADOS = {StatusProcessoAdocao.FINALIZADO, StatusProcessoAdocao.CANCELADO}
+_EM_ANDAMENTO = "Este pet ja possui um processo de adocao em andamento."
 
 
 async def criar_processo_adocao(
     sessao: AsyncSession, dados: ProcessoAdocaoCriar, responsavel_id: int
 ) -> ProcessoAdocao:
+    pet = await _travar_pet_para_novo_processo(sessao, dados)
+
+    processo = ProcessoAdocao(
+        pet_id=dados.pet_id,
+        adotante_id=dados.adotante_id,
+        responsavel_id=responsavel_id,
+        status=StatusProcessoAdocao.EM_ANALISE,
+    )
+    # O pet pode estar 'disponivel' com um processo ativo esquecido, gravado pelo atalho
+    # manual que existia antes (DEF-04). O indice unico de processo ativo barra, e a
+    # resposta e a mesma do caso comum.
+    await gravar_sem_duplicar(sessao, repo_processo.criar(sessao, processo), _EM_ANDAMENTO)
+
+    # RN03: pet em processo deve ser identificado como 'em_processo_adocao'.
+    pet.situacao_adocao = SituacaoAdocaoPet.EM_PROCESSO_ADOCAO
+
+    await sessao.commit()
+    await sessao.refresh(processo)
+    return processo
+
+
+async def _travar_pet_para_novo_processo(sessao: AsyncSession, dados: ProcessoAdocaoCriar) -> Pet:
     # Trava a linha do pet ja na criacao: evita que dois adotantes iniciem processo
     # para o mesmo pet ao mesmo tempo (RNF18).
     pet = await repo_pet.obter_por_id_com_lock(sessao, dados.pet_id)
@@ -37,22 +61,8 @@ async def criar_processo_adocao(
 
     # RF17 (parte 1): nao permite dois processos concorrentes para o mesmo pet.
     if pet.situacao_adocao == SituacaoAdocaoPet.EM_PROCESSO_ADOCAO:
-        raise RegraNegocioError("Este pet ja possui um processo de adocao em andamento.")
-
-    processo = ProcessoAdocao(
-        pet_id=dados.pet_id,
-        adotante_id=dados.adotante_id,
-        responsavel_id=responsavel_id,
-        status=StatusProcessoAdocao.EM_ANALISE,
-    )
-    await repo_processo.criar(sessao, processo)
-
-    # RN03: pet em processo deve ser identificado como 'em_processo_adocao'.
-    pet.situacao_adocao = SituacaoAdocaoPet.EM_PROCESSO_ADOCAO
-
-    await sessao.commit()
-    await sessao.refresh(processo)
-    return processo
+        raise RegraNegocioError(_EM_ANDAMENTO)
+    return pet
 
 
 async def obter_processo_ou_falhar(sessao: AsyncSession, processo_id: int) -> ProcessoAdocao:
@@ -81,7 +91,12 @@ async def atualizar_status_processo(
         _finalizar(processo, pet, dados)
     else:
         processo.status = dados.status
-        if dados.status == StatusProcessoAdocao.CANCELADO:
+        # Cancelar so devolve o pet se ele estava em processo: um pet ja adotado por
+        # outro processo continua adotado (DEF-04).
+        if (
+            dados.status == StatusProcessoAdocao.CANCELADO
+            and pet.situacao_adocao == SituacaoAdocaoPet.EM_PROCESSO_ADOCAO
+        ):
             pet.situacao_adocao = SituacaoAdocaoPet.DISPONIVEL
 
     await _commitar_transicao(sessao)

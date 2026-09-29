@@ -66,26 +66,6 @@ async def atualizar_status_saude(
     return await repo_pet.salvar(sessao, pet)
 
 
-async def atualizar_situacao_adocao(
-    sessao: AsyncSession, pet_id: int, nova_situacao: SituacaoAdocaoPet
-) -> Pet:
-    """Ajuste manual da situacao de adocao. RN04: um pet ja adotado nao volta a ficar disponivel
-    por essa via -- a reversao de um 'adotado' exige uma decisao administrativa explicita,
-    entao aqui bloqueamos a transicao ADOTADO -> outro estado para evitar reabrir uma adocao
-    finalizada sem passar por um novo processo formal.
-    """
-    pet = await obter_pet_ou_falhar(sessao, pet_id)
-    if (
-        pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO
-        and nova_situacao != SituacaoAdocaoPet.ADOTADO
-    ):
-        raise RegraNegocioError(
-            "Pet ja adotado: a situacao de adocao nao pode ser alterada manualmente."
-        )
-    pet.situacao_adocao = nova_situacao
-    return await repo_pet.salvar(sessao, pet)
-
-
 def validar_upload_foto(content_type: str, tamanho_bytes: int) -> None:
     if content_type not in configuracoes.FORMATOS_IMAGEM_PERMITIDOS:
         raise RegraNegocioError(

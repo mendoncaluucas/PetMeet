@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RegraNegocioError
-from app.esquemas.processo_adocao import ProcessoAdocaoAtualizarStatus
+from app.esquemas.processo_adocao import ProcessoAdocaoAtualizarStatus, ProcessoAdocaoCriar
 from app.modelos.adotante import Adotante
 from app.modelos.enums import SituacaoAdocaoPet, StatusProcessoAdocao
 from app.modelos.pet import Pet
@@ -183,41 +183,42 @@ async def test_finalizar_processo_pet_em_tratamento_com_acompanhamento_em_dia_fu
     assert resposta.json()["status"] == "finalizado"
 
 
-async def test_finalizacao_concorrente_do_mesmo_pet_apenas_uma_vence(sessao: AsyncSession) -> None:
-    """RN02/RF17/RNF18: dois processos do MESMO pet tentando finalizar ao mesmo tempo --
-    apenas um pode vencer. Usa duas sessoes/conexoes reais (nao o mesmo objeto de sessao)
-    para reproduzir concorrencia de banco de verdade, e chama a camada de servico
-    diretamente (sem HTTP) para isolar exatamente a garantia que queremos testar.
+async def test_abertura_concorrente_de_processos_do_mesmo_pet_apenas_uma_vence(
+    sessao: AsyncSession,
+) -> None:
+    """RN02/RF17/RNF18: dois adotantes abrindo processo para o MESMO pet ao mesmo tempo --
+    apenas um pode vencer.
+
+    Substitui o teste de finalizacao concorrente de dois processos do mesmo pet: com o
+    indice unico de processo ativo (migration 0003), dois processos ativos para o mesmo
+    pet deixaram de existir, e a disputa passou a acontecer na abertura. Deterministico:
+    uma terceira conexao segura a trava do pet ate as duas aberturas estarem paradas nela.
     """
     pet = await _criar_pet(sessao)
     adotante1 = await _criar_adotante(sessao, "88888888881")
     adotante2 = await _criar_adotante(sessao, "88888888882")
 
-    # Cenario artificial: dois processos abertos para o mesmo pet, simulando uma falha
-    # anterior na camada de aplicacao -- a garantia final precisa vir do banco.
-    processo1 = ProcessoAdocao(
-        pet_id=pet.id, adotante_id=adotante1.id, status=StatusProcessoAdocao.EM_ANALISE
-    )
-    processo2 = ProcessoAdocao(
-        pet_id=pet.id, adotante_id=adotante2.id, status=StatusProcessoAdocao.EM_ANALISE
-    )
-    sessao.add_all([processo1, processo2])
-    await sessao.commit()
-    id_processo1, id_processo2 = processo1.id, processo2.id
-
-    async def _finalizar(processo_id: int) -> str:
+    async def _abrir(adotante_id: int) -> str:
         async with FabricaSessaoTeste() as sessao_local:
             try:
-                await servico_processo.atualizar_status_processo(
+                await servico_processo.criar_processo_adocao(
                     sessao_local,
-                    processo_id,
-                    ProcessoAdocaoAtualizarStatus(status=StatusProcessoAdocao.FINALIZADO),
+                    ProcessoAdocaoCriar(pet_id=pet.id, adotante_id=adotante_id),
+                    responsavel_id=None,
                 )
                 return "sucesso"
             except (RegraNegocioError, ConflitoError):
                 return "rejeitado"
 
-    resultados = await asyncio.gather(_finalizar(id_processo1), _finalizar(id_processo2))
+    async with FabricaSessaoTeste() as trava:
+        await trava.execute(select(Pet).where(Pet.id == pet.id).with_for_update())
+        tarefas = [
+            asyncio.create_task(_abrir(adotante1.id)),
+            asyncio.create_task(_abrir(adotante2.id)),
+        ]
+        await esperar_conexoes_bloqueadas(2)
+        await trava.rollback()
+    resultados = await asyncio.gather(*tarefas)
 
     assert sorted(resultados) == ["rejeitado", "sucesso"]
 
