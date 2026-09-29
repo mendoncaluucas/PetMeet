@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RecursoNaoEncontradoError, RegraNegocioError
+from app.esquemas.adotante import AdotanteAtualizar
 from app.esquemas.processo_adocao import ProcessoAdocaoCriar
 from app.modelos.adotante import Adotante
 from app.modelos.enums import StatusProcessoAdocao
@@ -203,3 +204,29 @@ async def test_atualizar_com_nulo_e_recusado_em_vez_de_quebrar(
             f"/adotantes/{adotante.id}", json={campo: None}, headers=cabecalho_admin
         )
         assert resposta.status_code == 422, campo
+
+
+async def test_atualizacao_que_chega_depois_da_exclusao(sessao: AsyncSession) -> None:
+    """Inativar (ou editar) um adotante que outra pessoa esta excluindo.
+
+    Sem trava, a atualizacao lia o adotante, a exclusao commitava, e o UPDATE nao
+    encontrava a linha: StaleDataError, respondido como 500 -- 18 de 20 rodadas no
+    teste de estresse de 29/09.
+    """
+    adotante = await _adotante(sessao)
+
+    async def _inativar() -> None:
+        async with FabricaSessaoTeste() as sessao_local:
+            await servico_adotante.atualizar_adotante(
+                sessao_local, adotante.id, AdotanteAtualizar(ativo=False)
+            )
+
+    async with FabricaSessaoTeste() as exclusao:
+        await exclusao.execute(select(Adotante).where(Adotante.id == adotante.id).with_for_update())
+        await exclusao.execute(text("DELETE FROM adotantes WHERE id = :id"), {"id": adotante.id})
+        tarefa = asyncio.create_task(_inativar())
+        await esperar_conexoes_bloqueadas(1)
+        await exclusao.commit()
+
+    with pytest.raises(RecursoNaoEncontradoError):
+        await tarefa
