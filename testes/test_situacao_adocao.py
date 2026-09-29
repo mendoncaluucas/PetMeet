@@ -13,7 +13,9 @@ from app.modelos.adotante import Adotante
 from app.modelos.enums import SituacaoAdocaoPet, StatusProcessoAdocao, StatusSaudePet
 from app.modelos.pet import Pet
 from app.modelos.processo_adocao import ProcessoAdocao
+from app.repositorios import processo_adocao as repo_processo
 from app.servicos import processo_adocao as servico_processo
+from app.servicos.unicidade import gravar_sem_duplicar
 
 
 async def _pet(sessao: AsyncSession, **campos) -> Pet:
@@ -119,3 +121,20 @@ async def test_cancelar_processo_nao_devolve_pet_ja_adotado(sessao: AsyncSession
 
     await sessao.refresh(pet)
     assert pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO
+
+
+async def test_chave_externa_quebrada_nao_vira_mensagem_de_duplicado(sessao: AsyncSession) -> None:
+    """O auxiliar de duplicidade so pode traduzir violacao de unicidade.
+
+    Ele respondia qualquer erro de integridade como "ja existe". Com a exclusao de
+    adotante (item 1.6), excluir o adotante enquanto um processo e aberto para ele
+    daria "este pet ja possui um processo em andamento" -- reproduzido em 29/09.
+    """
+    pet = await _pet(sessao)
+    sem_adotante = ProcessoAdocao(
+        pet_id=pet.id, adotante_id=999_999, status=StatusProcessoAdocao.EM_ANALISE
+    )
+
+    with pytest.raises(IntegrityError):
+        await gravar_sem_duplicar(sessao, repo_processo.criar(sessao, sem_adotante), "duplicado")
+    await sessao.rollback()
