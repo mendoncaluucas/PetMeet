@@ -45,10 +45,6 @@ class PetAtualizarStatusSaude(BaseModel):
         return self
 
 
-class PetAtualizarSituacaoAdocao(BaseModel):
-    situacao_adocao: SituacaoAdocaoPet
-
-
 class PetResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

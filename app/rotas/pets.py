@@ -9,7 +9,6 @@ from app.dependencias import SessaoAsync, UsuarioAtual, requer_perfil
 from app.esquemas.comuns import PaginaResposta
 from app.esquemas.pet import (
     PetAtualizar,
-    PetAtualizarSituacaoAdocao,
     PetAtualizarStatusSaude,
     PetCriar,
     PetResposta,
@@ -74,14 +73,9 @@ async def atualizar_status_saude(
     return PetResposta.model_validate(pet)
 
 
-@roteador.patch(
-    "/{pet_id}/situacao-adocao", response_model=PetResposta, dependencies=[_requer_equipe]
-)
-async def atualizar_situacao_adocao(
-    sessao: SessaoAsync, pet_id: int, dados: PetAtualizarSituacaoAdocao
-) -> PetResposta:
-    pet = await servico_pet.atualizar_situacao_adocao(sessao, pet_id, dados.situacao_adocao)
-    return PetResposta.model_validate(pet)
+# A situacao de adocao nao tem rota propria: ela muda so pelo processo de adocao
+# (abrir, cancelar, finalizar). A rota manual que existia permitia marcar como adotado
+# um pet em tratamento medico, sem processo nenhum (DEF-03).
 
 
 @roteador.post("/{pet_id}/foto", response_model=PetResposta, dependencies=[_requer_equipe])

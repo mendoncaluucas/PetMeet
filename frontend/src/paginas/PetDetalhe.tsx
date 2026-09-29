@@ -3,7 +3,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ErroApi } from '../api/cliente'
 import { adotantes as apiAdotantes, pets, processos as apiProcessos } from '../api/recursos'
-import type { EspeciePet, Pet, SituacaoAdocaoPet, StatusSaudePet } from '../api/tipos'
+import type { EspeciePet, Pet, StatusSaudePet } from '../api/tipos'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
 import { Aviso, Carregando, Moldura, Selo } from '../componentes/Interface'
 import {
@@ -24,7 +24,7 @@ import { useRequisicao } from '../util/useRequisicao'
 const TAMANHO_MAXIMO_FOTO = 5 * 1024 * 1024
 const FORMATOS_FOTO = ['image/jpeg', 'image/png', 'image/webp']
 
-type Secao = 'nenhuma' | 'dados' | 'saude' | 'situacao'
+type Secao = 'nenhuma' | 'dados' | 'saude'
 
 export function PetDetalhe() {
   const { id } = useParams<{ id: string }>()
@@ -180,37 +180,19 @@ export function PetDetalhe() {
             </div>
           </section>
 
-          {/* --- Situacao de adocao --- */}
+          {/* --- Situacao de adocao: so leitura, muda pelo processo de adocao --- */}
           <section className="ficha">
             <div className="ficha-corpo">
               <div className="secao-titulo">
                 <h2>Situação de adoção</h2>
-                <button
-                  type="button"
-                  className="botao"
-                  data-tipo="texto"
-                  onClick={() => setSecao(secao === 'situacao' ? 'nenhuma' : 'situacao')}
-                >
-                  {secao === 'situacao' ? 'Fechar' : 'Alterar'}
-                </button>
               </div>
-
-              {secao === 'situacao' ? (
-                <FormularioSituacao
-                  pet={pet}
-                  aoSalvar={(atualizado) => aplicar(atualizado, 'Situação de adoção atualizada.')}
-                  aoFalhar={(problema) => falhar(problema, 'Não foi possível alterar a situação.')}
-                  aoCancelar={() => setSecao('nenhuma')}
-                />
-              ) : (
-                <p>
-                  {pet.situacao_adocao === 'disponivel'
-                    ? 'Disponível para adoção. Abra um processo quando aparecer um adotante interessado.'
-                    : pet.situacao_adocao === 'em_processo_adocao'
-                      ? 'Em processo de adoção. A situação muda sozinha quando o processo for finalizado.'
-                      : 'Adotado. A ficha fica no histórico do abrigo.'}
-                </p>
-              )}
+              <p>
+                {pet.situacao_adocao === 'disponivel'
+                  ? 'Disponível para adoção. Abra um processo quando aparecer um adotante interessado.'
+                  : pet.situacao_adocao === 'em_processo_adocao'
+                    ? 'Em processo de adoção. A situação muda sozinha quando o processo for finalizado ou cancelado.'
+                    : 'Adotado. A ficha fica no histórico do abrigo.'}
+              </p>
             </div>
           </section>
 
@@ -418,43 +400,6 @@ function FormularioSaude({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
       <div className="acoes">
         <button type="submit" className="botao" disabled={salvando}>
           {salvando ? 'Salvando…' : 'Salvar ficha médica'}
-        </button>
-        <button type="button" className="botao" data-tipo="texto" onClick={aoCancelar}>
-          Cancelar
-        </button>
-      </div>
-    </form>
-  )
-}
-
-function FormularioSituacao({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
-  const [situacao, setSituacao] = useState<SituacaoAdocaoPet>(pet.situacao_adocao)
-  const [salvando, setSalvando] = useState(false)
-
-  async function enviar(evento: FormEvent) {
-    evento.preventDefault()
-    setSalvando(true)
-    try {
-      aoSalvar(await pets.atualizarSituacaoAdocao(pet.id, situacao))
-    } catch (problema) {
-      aoFalhar(problema)
-      setSalvando(false)
-    }
-  }
-
-  return (
-    <form className="formulario" onSubmit={enviar}>
-      <CampoSelecao
-        rotulo="Situação de adoção"
-        value={situacao}
-        dica="Finalizar um processo de adoção já marca o pet como adotado automaticamente."
-        onChange={(e) => setSituacao(e.target.value as SituacaoAdocaoPet)}
-      >
-        {opcoesDe(SITUACOES_ADOCAO)}
-      </CampoSelecao>
-      <div className="acoes">
-        <button type="submit" className="botao" disabled={salvando}>
-          {salvando ? 'Salvando…' : 'Salvar situação'}
         </button>
         <button type="button" className="botao" data-tipo="texto" onClick={aoCancelar}>
           Cancelar

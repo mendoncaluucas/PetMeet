@@ -56,12 +56,6 @@ export const pets = {
   atualizarStatusSaude: (id: number, dados: PetAtualizarStatusSaude) =>
     requisitar<Pet>(`/pets/${id}/status-saude`, { metodo: 'PATCH', corpo: dados }),
 
-  atualizarSituacaoAdocao: (id: number, situacao_adocao: SituacaoAdocaoPet) =>
-    requisitar<Pet>(`/pets/${id}/situacao-adocao`, {
-      metodo: 'PATCH',
-      corpo: { situacao_adocao },
-    }),
-
   enviarFoto: (id: number, arquivo: File) => {
     const dados = new FormData()
     dados.append('arquivo', arquivo)
