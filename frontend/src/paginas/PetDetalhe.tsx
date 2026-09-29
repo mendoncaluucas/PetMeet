@@ -416,7 +416,7 @@ function ProcessosDoPet({ petId }: { petId: number }) {
     () =>
       Promise.all([
         apiProcessos.listar({ pet_id: petId, tamanho_pagina: 50 }),
-        apiAdotantes.listar(1, 100),
+        apiAdotantes.listar(1, 100, true), // inclui inativos: dao nome aos processos antigos
       ]),
     [petId],
   )

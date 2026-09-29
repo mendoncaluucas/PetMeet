@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { ErroApi } from '../api/cliente'
 import { adotantes as api, pets as apiPets, processos as apiProcessos } from '../api/recursos'
 import type { Adotante } from '../api/tipos'
-import { Campo } from '../componentes/Campos'
+import { Campo, CampoMarcador } from '../componentes/Campos'
 import {
   Aviso,
   CabecalhoPagina,
@@ -30,21 +30,37 @@ type Painel =
   | { tipo: 'cadastro' }
   | { tipo: 'edicao'; adotante: Adotante }
   | { tipo: 'historico'; adotante: Adotante }
+  | { tipo: 'exclusao'; adotante: Adotante }
 
 export function Adotantes() {
   const [pagina, setPagina] = useState(1)
   const [painel, setPainel] = useState<Painel | null>(null)
   const [mensagem, setMensagem] = useState<string | null>(null)
+  const [falha, setFalha] = useState<string | null>(null)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
 
   const { dados, carregando, erro, recarregar } = useRequisicao(
-    () => api.listar(pagina, TAMANHO_PAGINA),
-    [pagina],
+    () => api.listar(pagina, TAMANHO_PAGINA, mostrarInativos),
+    [pagina, mostrarInativos],
   )
 
   function concluir(texto: string) {
     setMensagem(texto)
+    setFalha(null)
     setPainel(null)
     recarregar()
+  }
+
+  async function alternarAtivo(pessoa: Adotante) {
+    try {
+      await api.atualizar(pessoa.id, { ativo: !pessoa.ativo })
+      concluir(`Cadastro de ${pessoa.nome} ${pessoa.ativo ? 'inativado' : 'reativado'}.`)
+    } catch (problema) {
+      setMensagem(null)
+      setFalha(
+        problema instanceof ErroApi ? problema.mensagemDeTela() : 'Não foi possível alterar.',
+      )
+    }
   }
 
   return (
@@ -60,13 +76,25 @@ export function Adotantes() {
       />
 
       {mensagem ? <Aviso tom="sucesso">{mensagem}</Aviso> : null}
+      {falha ? <Aviso>{falha}</Aviso> : null}
       {erro ? <Aviso>{erro}</Aviso> : null}
+
+      <CampoMarcador
+        rotulo="Mostrar inativos"
+        dica="Inativos não aparecem na escolha de adotante ao abrir um processo."
+        checked={mostrarInativos}
+        onChange={(evento) => {
+          setPagina(1)
+          setMostrarInativos(evento.target.checked)
+        }}
+      />
+
       {carregando ? <Carregando /> : null}
 
       {dados && !carregando ? (
         dados.itens.length === 0 ? (
           <EstadoVazio
-            titulo="Nenhum adotante cadastrado"
+            titulo={mostrarInativos ? 'Nenhum adotante cadastrado' : 'Nenhum adotante ativo'}
             descricao="Cadastre a pessoa interessada antes de abrir o processo de adoção."
             acao={
               <button
@@ -95,7 +123,9 @@ export function Adotantes() {
                 <tbody>
                   {dados.itens.map((pessoa) => (
                     <tr key={pessoa.id}>
-                      <td className="principal">{pessoa.nome}</td>
+                      <td className="principal">
+                        {pessoa.nome} {pessoa.ativo ? null : <Selo>Inativo</Selo>}
+                      </td>
                       <td>
                         <Cpf valor={pessoa.cpf} />
                       </td>
@@ -120,6 +150,22 @@ export function Adotantes() {
                             onClick={() => setPainel({ tipo: 'edicao', adotante: pessoa })}
                           >
                             Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="botao"
+                            data-tipo="texto"
+                            onClick={() => alternarAtivo(pessoa)}
+                          >
+                            {pessoa.ativo ? 'Inativar' : 'Reativar'}
+                          </button>
+                          <button
+                            type="button"
+                            className="botao"
+                            data-tipo="texto"
+                            onClick={() => setPainel({ tipo: 'exclusao', adotante: pessoa })}
+                          >
+                            Excluir
                           </button>
                         </div>
                       </td>
@@ -157,7 +203,64 @@ export function Adotantes() {
       {painel?.tipo === 'historico' ? (
         <HistoricoDeAdocoes adotante={painel.adotante} aoFechar={() => setPainel(null)} />
       ) : null}
+
+      {painel?.tipo === 'exclusao' ? (
+        <ConfirmarExclusao
+          adotante={painel.adotante}
+          aoFechar={() => setPainel(null)}
+          aoExcluir={() => concluir(`Cadastro de ${painel.adotante.nome} excluído.`)}
+        />
+      ) : null}
     </>
+  )
+}
+
+/* --- Exclusao ------------------------------------------------------------ */
+
+interface ExclusaoProps {
+  adotante: Adotante
+  aoFechar: () => void
+  aoExcluir: () => void
+}
+
+/**
+ * So quem nunca teve processo de adocao pode ser excluido. Com processo, a API responde
+ * 409 e a mensagem dela orienta a inativar -- o historico de adocao nao pode sumir.
+ */
+function ConfirmarExclusao({ adotante, aoFechar, aoExcluir }: ExclusaoProps) {
+  const [erro, setErro] = useState<string | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
+
+  async function excluir() {
+    setExcluindo(true)
+    setErro(null)
+    try {
+      await api.excluir(adotante.id)
+      aoExcluir()
+    } catch (problema) {
+      setErro(problema instanceof ErroApi ? problema.mensagemDeTela() : 'Não foi possível excluir.')
+      setExcluindo(false)
+    }
+  }
+
+  return (
+    <Sobreposicao titulo={`Excluir ${adotante.nome}?`} aoFechar={aoFechar}>
+      <div className="pilha-4">
+        <p>
+          O cadastro some de vez. Quem já teve processo de adoção não pode ser excluído, só
+          inativado.
+        </p>
+        {erro ? <Aviso>{erro}</Aviso> : null}
+        <div className="acoes">
+          <button type="button" className="botao" onClick={excluir} disabled={excluindo}>
+            {excluindo ? 'Excluindo…' : 'Excluir'}
+          </button>
+          <button type="button" className="botao" data-tipo="texto" onClick={aoFechar}>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </Sobreposicao>
   )
 }
 

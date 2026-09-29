@@ -34,7 +34,7 @@ export function Adocoes() {
       Promise.all([
         apiProcessos.listar({ pagina, tamanho_pagina: TAMANHO_PAGINA }),
         apiPets.listar({ tamanho_pagina: 100 }),
-        apiAdotantes.listar(1, 100),
+        apiAdotantes.listar(1, 100, true), // inclui inativos: dao nome aos processos antigos
       ]),
     [pagina],
   )
@@ -157,7 +157,7 @@ export function Adocoes() {
       {abrindo ? (
         <AbrirProcesso
           petsDisponiveis={petsDisponiveis}
-          adotantes={listaAdotantes.itens}
+          adotantes={listaAdotantes.itens.filter((pessoa) => pessoa.ativo)}
           aoFechar={() => setAbrindo(false)}
           aoCriar={() => concluir('Processo de adoção aberto.')}
         />
@@ -223,7 +223,7 @@ function AbrirProcesso({ petsDisponiveis, adotantes, aoFechar, aoCriar }: AbrirP
           <p>
             {petsDisponiveis.length === 0
               ? 'Nenhum pet está disponível para adoção no momento.'
-              : 'Nenhum adotante cadastrado ainda.'}
+              : 'Nenhum adotante ativo cadastrado.'}
           </p>
           <div className="acoes">
             <Link to={petsDisponiveis.length === 0 ? '/pets' : '/adotantes'} className="botao">

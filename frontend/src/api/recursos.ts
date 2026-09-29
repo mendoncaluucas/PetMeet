@@ -64,16 +64,29 @@ export const pets = {
 }
 
 export const adotantes = {
-  listar: (pagina = 1, tamanho_pagina = 20) =>
-    requisitar<PaginaResposta<Adotante>>(`/adotantes${consulta({ pagina, tamanho_pagina })}`),
+  /**
+   * Por padrao a API devolve so os ativos. Telas que usam a lista para dar nome aos
+   * processos antigos precisam dos inativos tambem.
+   */
+  listar: (pagina = 1, tamanho_pagina = 20, incluirInativos = false) =>
+    requisitar<PaginaResposta<Adotante>>(
+      `/adotantes${consulta({
+        pagina,
+        tamanho_pagina,
+        incluir_inativos: incluirInativos ? 'true' : undefined,
+      })}`,
+    ),
 
   obter: (id: number) => requisitar<Adotante>(`/adotantes/${id}`),
 
   criar: (dados: AdotanteCriar) =>
     requisitar<Adotante>('/adotantes', { metodo: 'POST', corpo: dados }),
 
-  atualizar: (id: number, dados: Partial<AdotanteCriar>) =>
+  atualizar: (id: number, dados: Partial<AdotanteCriar> & { ativo?: boolean }) =>
     requisitar<Adotante>(`/adotantes/${id}`, { metodo: 'PATCH', corpo: dados }),
+
+  /** So para quem nunca teve processo; com processo a API responde 409 e pede inativar. */
+  excluir: (id: number) => requisitar<void>(`/adotantes/${id}`, { metodo: 'DELETE' }),
 }
 
 export const padrinhos = {
