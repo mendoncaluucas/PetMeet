@@ -26,7 +26,7 @@ async function carregarPainel(): Promise<Carga> {
   const [listaPets, listaProcessos, listaAdotantes, listaDoacoes] = await Promise.all([
     pets.listar({ tamanho_pagina: LIMITE }),
     processos.listar({ tamanho_pagina: LIMITE }),
-    adotantes.listar(1, LIMITE),
+    adotantes.listar(1, LIMITE, true), // inclui inativos: dao nome aos processos antigos
     doacoes.listar({ tamanho_pagina: LIMITE }),
   ])
   return {

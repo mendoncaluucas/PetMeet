@@ -64,6 +64,8 @@ export interface Adotante {
   email: string
   telefone: string
   endereco: string
+  /** Inativo: fora das listagens e sem processo novo. */
+  ativo: boolean
   criado_em: string
 }
 

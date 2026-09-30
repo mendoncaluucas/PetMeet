@@ -52,8 +52,16 @@ async def _travar_pet_para_novo_processo(sessao: AsyncSession, dados: ProcessoAd
     if pet is None:
         raise RecursoNaoEncontradoError(f"Pet {dados.pet_id} nao encontrado.")
 
-    if await repo_adotante.obter_por_id(sessao, dados.adotante_id) is None:
+    # Trava o adotante em modo compartilhado: uma exclusao simultanea espera este processo
+    # ser gravado (e entao recusa), ou, se chegou antes, faz esta abertura ver o adotante
+    # ja excluido -- em vez de quebrar na chave externa.
+    adotante = await repo_adotante.obter_por_id_com_lock(
+        sessao, dados.adotante_id, compartilhado=True
+    )
+    if adotante is None:
         raise RecursoNaoEncontradoError(f"Adotante {dados.adotante_id} nao encontrado.")
+    if not adotante.ativo:
+        raise RegraNegocioError("Adotante inativo: reative o cadastro antes de abrir um processo.")
 
     # RN04: pet ja adotado nunca reabre processo.
     if pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO:

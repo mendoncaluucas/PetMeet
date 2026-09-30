@@ -31,10 +31,22 @@ class AdotanteAtualizar(BaseModel):
     email: EmailStr | None = None
     telefone: str | None = Field(None, min_length=8, max_length=20)
     endereco: str | None = Field(None, min_length=5, max_length=255)
+    # False inativa, True reativa (DEF-13).
+    ativo: bool | None = None
+
+    @field_validator("*")
+    @classmethod
+    def recusar_nulo(cls, valor: object) -> object:
+        # None so vale como "campo nao enviado". Enviado como null, ia direto para uma
+        # coluna NOT NULL e a atualizacao respondia 500 (DEF-14).
+        if valor is None:
+            raise ValueError("o campo nao aceita nulo; para nao alterar, deixe de envia-lo")
+        return valor
 
 
 class AdotanteResposta(AdotanteBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    ativo: bool
     criado_em: datetime
