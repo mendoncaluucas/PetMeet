@@ -2,19 +2,25 @@
  * Sessao do usuario.
  *
  * O token emitido pelo backend carrega apenas {"sub": email, "exp": ...}
- * (app/core/seguranca.py). Nao ha rota /auth/me nem o perfil dentro do token,
- * entao o front sabe quem esta logado, mas nao se a pessoa e admin ou
- * voluntaria: as telas restritas tratam o 403 da API como a resposta.
+ * (app/core/seguranca.py). O perfil vem de GET /auth/me, que le o banco: o painel
+ * usa para mostrar so o que a pessoa pode fazer. Quem decide continua sendo a API,
+ * que rele o perfil a cada requisicao -- esconder um botao aqui e so conveniencia.
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { EVENTO_SESSAO_EXPIRADA, apagarToken, gravarToken, lerToken } from '../api/cliente'
 import { autenticacao } from '../api/recursos'
+import type { Usuario } from '../api/tipos'
 
 interface Sessao {
   email: string | null
   autenticado: boolean
+  /** null enquanto /auth/me nao respondeu: trate como "perfil ainda desconhecido". */
+  usuario: Usuario | null
+  /** /auth/me falhou por outro motivo que nao 401: o perfil nao vai chegar sozinho. */
+  perfilFalhou: boolean
+  ehAdmin: boolean
   entrar: (email: string, senha: string) => Promise<void>
   sair: () => void
 }
@@ -50,9 +56,32 @@ function emailDeTokenValido(token: string | null): string | null {
 
 export function ProvedorAuth({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(() => emailDeTokenValido(lerToken()))
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [perfilFalhou, setPerfilFalhou] = useState(false)
 
   useEffect(() => {
     if (!email) apagarToken()
+  }, [email])
+
+  useEffect(() => {
+    setUsuario(null)
+    setPerfilFalhou(false)
+    if (!email) return
+    let cancelado = false
+    autenticacao
+      .eu()
+      .then((dados) => {
+        if (!cancelado) setUsuario(dados)
+      })
+      .catch(() => {
+        // Um 401 aqui ja encerra a sessao pelo cliente (EVENTO_SESSAO_EXPIRADA). Qualquer
+        // outra falha deixa o perfil desconhecido: as telas restritas ficam escondidas e
+        // avisam, em vez de esperar para sempre.
+        if (!cancelado) setPerfilFalhou(true)
+      })
+    return () => {
+      cancelado = true
+    }
   }, [email])
 
   useEffect(() => {
@@ -61,10 +90,10 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, aoExpirar)
   }, [])
 
-  const entrar = useCallback(async (usuario: string, senha: string) => {
-    const resposta = await autenticacao.entrar(usuario, senha)
+  const entrar = useCallback(async (usuarioLogin: string, senha: string) => {
+    const resposta = await autenticacao.entrar(usuarioLogin, senha)
     gravarToken(resposta.access_token)
-    setEmail(emailDeTokenValido(resposta.access_token) ?? usuario)
+    setEmail(emailDeTokenValido(resposta.access_token) ?? usuarioLogin)
   }, [])
 
   const sair = useCallback(() => {
@@ -73,8 +102,16 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
   }, [])
 
   const valor = useMemo<Sessao>(
-    () => ({ email, autenticado: email !== null, entrar, sair }),
-    [email, entrar, sair],
+    () => ({
+      email,
+      autenticado: email !== null,
+      usuario,
+      perfilFalhou,
+      ehAdmin: usuario?.perfil === 'admin',
+      entrar,
+      sair,
+    }),
+    [email, usuario, perfilFalhou, entrar, sair],
   )
 
   return <ContextoAuth.Provider value={valor}>{children}</ContextoAuth.Provider>

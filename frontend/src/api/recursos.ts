@@ -32,6 +32,9 @@ export const autenticacao = {
       semAutenticacao: true,
       formulario: { username: email, password: senha },
     }),
+
+  /** GET /auth/me - quem esta logado e com qual perfil, lido do banco. */
+  eu: () => requisitar<Usuario>('/auth/me'),
 }
 
 export interface FiltrosPets {

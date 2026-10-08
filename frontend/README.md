@@ -124,10 +124,9 @@ Estes pontos estão prontos na interface até onde a API permite hoje:
   fora até esse endpoint existir.
 - **Listagem da equipe** — a API tem `POST /usuarios` mas não `GET /usuarios`,
   então a tela "Equipe" só cria contas.
-- **Perfil do usuário logado** — o JWT carrega apenas o e-mail, e não existe
-  `GET /auth/me`. O painel não sabe se quem entrou é admin ou voluntário, então
-  mostra todas as telas e trata o 403 da API quando a ação não é permitida.
-  Incluir `perfil` no token resolveria.
+- **Perfil do usuário logado** — resolvido: o painel lê o perfil em `GET /auth/me`
+  e mostra a tela "Equipe" só para admin. A API continua sendo quem decide: cada
+  rota relê o perfil no banco, e o painel segue tratando o 403.
 - **RF22 (auditoria)** — o modelo `LogAuditoria` existe, mas nada é gravado
   ainda e não há rota de consulta.
 - **Filtro de status em processos** — `GET /processos-adocao` filtra por
