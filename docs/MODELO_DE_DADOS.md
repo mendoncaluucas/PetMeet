@@ -98,7 +98,8 @@ Essas duas colunas sustentam diretamente a regra crítica RN01/RF16:
 - `Pet.doenca_atual` — obrigatório sempre que `status_saude` for
   `em_tratamento_medico` (validado no schema Pydantic e reforçado no serviço).
   É o "identificar qual doença está sendo tratada" citado no RF16.
-- `ProcessoAdocao.acompanhamento_medico_em_dia` — confirmado pelo usuário no
-  momento da finalização; só é aceito `true` quando o serviço decide
-  finalizar um processo de um pet em tratamento médico. Fica registrado no
-  processo para auditoria futura (quem confirmou, quando).
+- `ProcessoAdocao.acompanhamento_medico_em_dia` — **histórico**. Na versão
+  recebida, marcar o acompanhamento em dia liberava a finalização de um pet em
+  tratamento. Com a decisão D1 a regra passou a ser literal — pet em tratamento
+  não finaliza, sem exceção — e o campo deixou de ser lido. A coluna fica para
+  não apagar o registro dos processos finalizados antes da mudança.
