@@ -17,6 +17,9 @@ dependencies = [
     "python-multipart>=0.0.12",
     "pillow>=10.4.0",
     "email-validator>=2.2.0",
+    # Base de fusos para America/Sao_Paulo: o Windows nao tem uma, e o "hoje" da ONG
+    # nao pode depender do fuso da maquina (app/core/tempo.py)
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]
