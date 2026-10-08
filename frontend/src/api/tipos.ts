@@ -147,3 +147,40 @@ export interface UsuarioCriar {
   senha: string
   perfil: PerfilUsuario
 }
+
+/* --- Painel --------------------------------------------------------------- */
+
+export interface PetResumido {
+  id: number
+  nome: string
+  status_saude: StatusSaudePet
+  doenca_atual: string | null
+  data_resgate: string
+}
+
+export interface ProcessoResumido {
+  id: number
+  status: StatusProcessoAdocao
+  pet_id: number
+  pet_nome: string
+  pet_status_saude: StatusSaudePet
+  adotante_id: number
+  adotante_nome: string
+}
+
+/** GET /painel/resumo: contagens e total do mes vem do banco inteiro, no fuso de Brasilia. */
+export interface ResumoPainel {
+  pets_total: number
+  pets_disponiveis: number
+  pets_em_tratamento: number
+  processos_em_andamento: number
+  processos_aguardando_finalizacao: number
+  /** "AAAA-MM" */
+  mes_de_referencia: string
+  /** Decimal serializado como texto, como em Doacao.valor */
+  doacoes_do_mes_total: string
+  doacoes_do_mes_quantidade: number
+  em_tratamento: PetResumido[]
+  em_andamento: ProcessoResumido[]
+  esperando_ha_mais_tempo: PetResumido[]
+}
