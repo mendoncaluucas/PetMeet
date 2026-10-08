@@ -122,3 +122,40 @@ async def test_senha_acentuada_conta_bytes_e_nao_caracteres(
     # 37 caracteres, mas 74 bytes: cada "ç" ocupa 2 bytes em UTF-8.
     resposta = await client.post("/usuarios", json=_novo_usuario("ç" * 37), headers=cabecalho_admin)
     assert resposta.status_code == 422
+
+
+async def test_auth_me_devolve_o_usuario_logado_com_o_perfil(
+    client: AsyncClient, cabecalho_admin: dict
+) -> None:
+    """1.8: o painel nao sabia se quem entrou e admin ou voluntario."""
+    resposta = await client.get("/auth/me", headers=cabecalho_admin)
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["email"] == "admin@petmeet.org.br"
+    assert corpo["perfil"] == "admin"
+    assert "senha_hash" not in corpo
+
+
+async def test_auth_me_de_voluntario(client: AsyncClient, sessao: AsyncSession) -> None:
+    sessao.add(
+        Usuario(
+            nome="Vera",
+            email="vera@petmeet.org.br",
+            senha_hash=gerar_hash_senha("senha-da-vera"),
+            perfil=PerfilUsuario.VOLUNTARIO,
+        )
+    )
+    await sessao.commit()
+    from app.core.seguranca import criar_token_acesso
+
+    token = criar_token_acesso({"sub": "vera@petmeet.org.br"})
+    resposta = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert resposta.status_code == 200
+    assert resposta.json()["perfil"] == "voluntario"
+
+
+async def test_auth_me_sem_token_retorna_401(client: AsyncClient) -> None:
+    resposta = await client.get("/auth/me")
+    assert resposta.status_code == 401
