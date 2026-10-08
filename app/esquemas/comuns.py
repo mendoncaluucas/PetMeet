@@ -3,7 +3,7 @@
 import re
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 T = TypeVar("T")
 
@@ -13,6 +13,42 @@ class PaginaResposta(BaseModel, Generic[T]):
     total: int
     pagina: int
     tamanho_pagina: int
+
+
+def _contrato_sem_nulo(esquema: dict[str, Any]) -> None:
+    """Tira "null" das opcoes de tipo e o default null de cada campo do esquema publicado.
+
+    Os campos sao declarados `X | None = None` so para o "nao enviado" funcionar; o
+    contrato nao pode dizer que null e aceito, porque nao e.
+    """
+    for propriedade in esquema.get("properties", {}).values():
+        opcoes = [opcao for opcao in propriedade.pop("anyOf", []) if opcao.get("type") != "null"]
+        if len(opcoes) == 1:
+            propriedade.update(opcoes[0])
+        elif opcoes:
+            propriedade["anyOf"] = opcoes
+        if "default" in propriedade and propriedade["default"] is None:
+            del propriedade["default"]
+
+
+class AtualizacaoParcialSemNulo(BaseModel):
+    """Base dos schemas de PATCH cujos campos sao todos NOT NULL no banco.
+
+    None so vale como "campo nao enviado". Enviado como null, ia direto para a coluna e a
+    atualizacao respondia 500 (DEF-14). O validador so roda para campos enviados, e o
+    contrato publicado (OpenAPI) deixa de anunciar null.
+
+    Nao use em schema com campo que pode ser limpo de proposito (enviado como null).
+    """
+
+    model_config = ConfigDict(json_schema_extra=_contrato_sem_nulo)
+
+    @field_validator("*")
+    @classmethod
+    def recusar_nulo(cls, valor: Any) -> Any:
+        if valor is None:
+            raise ValueError("o campo nao aceita nulo; para nao alterar, deixe de envia-lo")
+        return valor
 
 
 def normalizar_cpf(valor: str) -> str:

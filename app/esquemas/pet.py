@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.esquemas.comuns import AtualizacaoParcialSemNulo
 from app.modelos.enums import EspeciePet, SituacaoAdocaoPet, StatusSaudePet
 
 
@@ -25,7 +26,7 @@ class PetCriar(BaseModel):
         return self
 
 
-class PetAtualizar(BaseModel):
+class PetAtualizar(AtualizacaoParcialSemNulo):
     nome: str | None = Field(None, min_length=1, max_length=100)
     especie: EspeciePet | None = None
     idade: int | None = Field(None, ge=0, le=40)
