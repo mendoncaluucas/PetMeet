@@ -13,9 +13,9 @@ class ProcessoAdocaoCriar(BaseModel):
 
 
 class ProcessoAdocaoAtualizarStatus(BaseModel):
+    # acompanhamento_medico_em_dia saiu daqui: pet em tratamento nao finaliza, com ou sem
+    # ele (decisao D1). Quem ainda envia o campo nao recebe erro -- campo extra e ignorado.
     status: StatusProcessoAdocao
-    # Usado apenas quando status == FINALIZADO e o pet esta em tratamento medico (RN01).
-    acompanhamento_medico_em_dia: bool = False
 
 
 class ProcessoAdocaoResposta(BaseModel):
@@ -26,6 +26,7 @@ class ProcessoAdocaoResposta(BaseModel):
     adotante_id: int
     responsavel_id: int | None
     status: StatusProcessoAdocao
+    # Historico: processos finalizados antes da decisao D1 podem ter o valor True.
     acompanhamento_medico_em_dia: bool
     criado_em: datetime
     atualizado_em: datetime

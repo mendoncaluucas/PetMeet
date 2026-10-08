@@ -96,7 +96,7 @@ async def atualizar_status_processo(
     processo, pet = await _travar_para_transicao(sessao, processo_id)
 
     if dados.status == StatusProcessoAdocao.FINALIZADO:
-        _finalizar(processo, pet, dados)
+        _finalizar(processo, pet)
     else:
         processo.status = dados.status
         # Cancelar so devolve o pet se ele estava em processo: um pet ja adotado por
@@ -141,26 +141,20 @@ async def _travar_para_transicao(
     return processo, pet
 
 
-def _finalizar(processo: ProcessoAdocao, pet: Pet, dados: ProcessoAdocaoAtualizarStatus) -> None:
+def _finalizar(processo: ProcessoAdocao, pet: Pet) -> None:
     # RF17 (parte 2): outro processo do mesmo pet ja foi finalizado enquanto este
     # estava em analise/aprovado -- rejeita antes mesmo de tentar commitar.
     if pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO:
         raise ConflitoError("Este pet ja foi adotado por meio de outro processo.")
 
-    # RN01/RF16: pet em tratamento medico so finaliza com doenca identificada
-    # e acompanhamento medico em dia confirmado pelo adotante.
+    # RN01/RF16, regra critica do enunciado, sem excecao (decisao D1): pet em tratamento
+    # medico nao tem a adocao finalizada. A versao recebida finalizava se alguem marcasse
+    # o acompanhamento medico em dia (DEF-02). A analise e a aprovacao seguem permitidas.
     if pet.status_saude == StatusSaudePet.EM_TRATAMENTO_MEDICO:
-        if not pet.doenca_atual:
-            raise RegraNegocioError(
-                "Pet esta em tratamento medico mas nao ha doenca identificada no cadastro; "
-                "atualize o cadastro do pet antes de finalizar a adocao."
-            )
-        if not dados.acompanhamento_medico_em_dia:
-            raise RegraNegocioError(
-                "Pet em tratamento medico: a finalizacao exige que o adotante esteja de "
-                "acordo com o acompanhamento medico (consultas semanais/mensais) em dia."
-            )
-        processo.acompanhamento_medico_em_dia = True
+        raise RegraNegocioError(
+            "Pet em tratamento medico nao pode ter a adocao finalizada. "
+            "Aguarde a alta medica para finalizar."
+        )
 
     processo.status = StatusProcessoAdocao.FINALIZADO
     pet.situacao_adocao = SituacaoAdocaoPet.ADOTADO
