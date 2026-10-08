@@ -112,8 +112,8 @@ pytest -v
 
 O teste mais importante do projeto e
 [`testes/test_processo_adocao.py`](testes/test_processo_adocao.py): cobre a
-regra critica do enunciado (RN01/RF16 — pet em tratamento medico so finaliza
-adocao com acompanhamento em dia) e a concorrencia (RN02/RF17/RNF18 — dois
+regra critica do enunciado (RN01/RF16 — pet em tratamento medico nao tem a
+adocao finalizada) e a concorrencia (RN02/RF17/RNF18 — dois
 processos do mesmo pet nunca finalizam ao mesmo tempo).
 
 ## Qualidade de codigo

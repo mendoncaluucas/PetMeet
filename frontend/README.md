@@ -105,7 +105,7 @@ avisar antes de gastar uma requisição.
 
 | Regra | Onde aparece |
 |---|---|
-| RF16/RN01 — finalizar adoção de pet em tratamento | Ao escolher "Finalizado" em `/adocoes`, aparece a confirmação do acompanhamento médico. Sem marcar, o botão fica desabilitado. |
+| RF16/RN01 — pet em tratamento não finaliza adoção | Ao escolher "Finalizado" em `/adocoes` para um pet em tratamento, a tela avisa que a adoção espera a alta médica e o botão fica desabilitado. A API recusa do mesmo jeito. |
 | RN02/RF17 — um único processo finalizado por pet | O 409 da API vira a mensagem "outro processo deste mesmo pet foi finalizado primeiro". |
 | RF16 — doença identificada | O campo "doença em tratamento" é obrigatório sempre que o estado for "em tratamento médico". |
 | RN05 — valor da doação | O formulário recusa valor zero ou negativo antes de enviar. |
