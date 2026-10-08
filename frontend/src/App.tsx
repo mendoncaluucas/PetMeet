@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { Aviso, Carregando } from './componentes/Interface'
 import { Layout } from './componentes/Layout'
 import { useAuth } from './auth/ContextoAuth'
 import { Login } from './paginas/Login'
@@ -20,6 +21,18 @@ function ExigeSessao({ children }: { children: ReactNode }) {
 
   // Guarda onde a pessoa queria chegar para devolve-la ao lugar certo depois.
   if (!autenticado) return <Navigate to="/entrar" replace state={{ destino: local.pathname }} />
+  return <>{children}</>
+}
+
+/** Tela so de admin. Enquanto o perfil nao chegou, espera em vez de recusar. */
+function ExigeAdmin({ children }: { children: ReactNode }) {
+  const { usuario, perfilFalhou, ehAdmin } = useAuth()
+
+  if (!usuario && perfilFalhou) {
+    return <Aviso>Não foi possível conferir seu perfil agora. Recarregue a página.</Aviso>
+  }
+  if (!usuario) return <Carregando texto="Conferindo seu perfil…" />
+  if (!ehAdmin) return <Aviso>Só administradores gerenciam a equipe.</Aviso>
   return <>{children}</>
 }
 
@@ -45,7 +58,14 @@ export function App() {
         <Route path="adotantes" element={<Adotantes />} />
         <Route path="padrinhos" element={<Padrinhos />} />
         <Route path="doacoes" element={<Doacoes />} />
-        <Route path="equipe" element={<Equipe />} />
+        <Route
+          path="equipe"
+          element={
+            <ExigeAdmin>
+              <Equipe />
+            </ExigeAdmin>
+          }
+        />
         <Route path="*" element={<NaoEncontrada />} />
       </Route>
     </Routes>

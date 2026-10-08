@@ -17,6 +17,7 @@ import type {
   ProcessoAdocao,
   ProcessoAdocaoAtualizarStatus,
   ProcessoAdocaoCriar,
+  ResumoPainel,
   SituacaoAdocaoPet,
   StatusSaudePet,
   TokenResposta,
@@ -32,6 +33,9 @@ export const autenticacao = {
       semAutenticacao: true,
       formulario: { username: email, password: senha },
     }),
+
+  /** GET /auth/me - quem esta logado e com qual perfil, lido do banco. */
+  eu: () => requisitar<Usuario>('/auth/me'),
 }
 
 export interface FiltrosPets {
@@ -136,4 +140,9 @@ export const usuarios = {
   /** Restrito a admin (RN06/RF21): quem nao for admin recebe 403. */
   criar: (dados: UsuarioCriar) =>
     requisitar<Usuario>('/usuarios', { metodo: 'POST', corpo: dados }),
+}
+
+export const painel = {
+  /** Contagens, total de doacoes do mes e listas curtas, tudo calculado no banco. */
+  resumo: () => requisitar<ResumoPainel>('/painel/resumo'),
 }
