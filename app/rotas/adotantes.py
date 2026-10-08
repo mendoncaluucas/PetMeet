@@ -31,8 +31,11 @@ async def listar_adotantes(
     sessao: SessaoAsync,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanho_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
+    incluir_inativos: bool = False,
 ) -> PaginaResposta[AdotanteResposta]:
-    itens, total = await servico_adotante.listar_adotantes(sessao, pagina, tamanho_pagina)
+    itens, total = await servico_adotante.listar_adotantes(
+        sessao, pagina, tamanho_pagina, incluir_inativos
+    )
     return PaginaResposta(
         itens=[AdotanteResposta.model_validate(item) for item in itens],
         total=total,
@@ -53,3 +56,11 @@ async def atualizar_adotante(
 ) -> AdotanteResposta:
     adotante = await servico_adotante.atualizar_adotante(sessao, adotante_id, dados)
     return AdotanteResposta.model_validate(adotante)
+
+
+@roteador.delete(
+    "/{adotante_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[_requer_equipe]
+)
+async def excluir_adotante(sessao: SessaoAsync, adotante_id: int) -> None:
+    """Exclui adotante sem processo de adocao. Com processo, responde 409: inative."""
+    await servico_adotante.excluir_adotante(sessao, adotante_id)
