@@ -38,18 +38,19 @@ O N2 é, portanto, **terminar de resolver o problema que o enunciado propôs**, 
 | ID | Defeito | Evidência | Situação |
 |---|---|---|---|
 | DEF-01 | Projeto não sobe em instalação nova: o SQLAlchemy 2.1 deixou de instalar o `greenlet` | CI da `main` vermelho; container em loop de reinício | **Corrigido** no [PR #1](https://github.com/mendoncaluucas/PetMeet/pull/1) |
-| DEF-02 | RN crítica relaxada: pet em tratamento finaliza adoção com a caixa marcada | `PATCH .../status` → 200; o próprio teste da equipe original afirma esse comportamento | Fase 1 |
-| DEF-03 | `PATCH /pets/{id}/situacao-adocao` marca como adotado um pet em tratamento, sem processo | 200 com zero processos; exposto na tela do pet | Fase 1 |
-| DEF-04 | Voltar um pet "em processo" para "disponível" permite um segundo processo; cancelar o segundo devolve o pet já adotado para "disponível" | Sequência inteira com 200/201 | Fase 1 |
-| DEF-05 | Depois do atalho do DEF-03, finalizar o processo responde 409 *"já foi adotado por meio de outro processo"* — sem nenhum outro processo finalizado. O processo fica preso. | 409 com 0 processos finalizados | Fase 1 |
-| DEF-06 | Cancelar e finalizar o mesmo processo ao mesmo tempo: as duas requisições recebem 200 | **27 de 30** rodadas; em sequência, a segunda recebe 422 | Fase 1 |
-| DEF-07 | Senha acima de 72 bytes derruba o login e o cadastro de usuário com 500 (bcrypt 5.0 passou a lançar `ValueError`) | Login com 80 bytes → 500; cadastro com 90 → 500. O schema aceita até 100 caracteres. | Fase 1 |
-| DEF-08 | Dois cadastros simultâneos com o mesmo CPF: o segundo recebe 500 em vez de 409. Mesmo padrão em padrinho e e-mail de usuário. | **4 de 10** rodadas | Fase 1 |
-| DEF-09 | Painel, "recebido este mês": o mês é calculado em UTC. A partir das 21h do último dia, mostra o mês seguinte. | `new Date().toISOString()` em 31/10 21:30 → `2026-11` | Fase 1 |
-| DEF-10 | Totais do Painel somados no navegador sobre a primeira página (100 registros) | `LIMITE = 100` em `Painel.tsx` | Fase 1 |
-| DEF-11 | Seed não é idempotente: rodado de novo, duplica os pets | Rex e Mingau com 2 registros cada | Fase 1 |
-| DEF-12 | CPF validado só pela quantidade de dígitos | `088.888.888-88` aceito; o primeiro dígito verificador deveria ser 0 | Fase 1 |
-| DEF-13 | Não há exclusão nem inativação de adotante (a API não tem nenhuma rota `DELETE`) | Lista de rotas do OpenAPI | Fase 1 |
+| DEF-02 | RN crítica relaxada: pet em tratamento finaliza adoção com a caixa marcada | `PATCH .../status` → 200; o próprio teste da equipe original afirma esse comportamento | Aguarda a decisão D1 (professor) |
+| DEF-03 | `PATCH /pets/{id}/situacao-adocao` marca como adotado um pet em tratamento, sem processo | 200 com zero processos; exposto na tela do pet | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
+| DEF-04 | Voltar um pet "em processo" para "disponível" permite um segundo processo; cancelar o segundo devolve o pet já adotado para "disponível" | Sequência inteira com 200/201 | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
+| DEF-05 | Depois do atalho do DEF-03, finalizar o processo responde 409 *"já foi adotado por meio de outro processo"* — sem nenhum outro processo finalizado. O processo fica preso. | 409 com 0 processos finalizados | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
+| DEF-06 | Cancelar e finalizar o mesmo processo ao mesmo tempo: as duas requisições recebem 200 | **27 de 30** rodadas; em sequência, a segunda recebe 422 | **Corrigido** no [PR #4](https://github.com/mendoncaluucas/PetMeet/pull/4) |
+| DEF-07 | Senha acima de 72 bytes derruba o login e o cadastro de usuário com 500 (bcrypt 5.0 passou a lançar `ValueError`) | Login com 80 bytes → 500; cadastro com 90 → 500. O schema aceita até 100 caracteres. | **Corrigido** no [PR #5](https://github.com/mendoncaluucas/PetMeet/pull/5) |
+| DEF-08 | Dois cadastros simultâneos com o mesmo CPF: o segundo recebe 500 em vez de 409. Mesmo padrão em padrinho e e-mail de usuário. | **4 de 10** rodadas | **Corrigido** no [PR #7](https://github.com/mendoncaluucas/PetMeet/pull/7) |
+| DEF-09 | Painel, "recebido este mês": o mês é calculado em UTC. A partir das 21h do último dia, mostra o mês seguinte. | `new Date().toISOString()` em 31/10 21:30 → `2026-11` | **Corrigido** no [PR #10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| DEF-10 | Totais do Painel somados no navegador sobre a primeira página (100 registros) | `LIMITE = 100` em `Painel.tsx` | **Corrigido** no [PR #10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| DEF-11 | Seed não é idempotente: rodado de novo, duplica os pets | Rex e Mingau com 2 registros cada | **Corrigido** no [PR #6](https://github.com/mendoncaluucas/PetMeet/pull/6) |
+| DEF-12 | CPF validado só pela quantidade de dígitos | `088.888.888-88` aceito; o primeiro dígito verificador deveria ser 0 | **Corrigido** no [PR #7](https://github.com/mendoncaluucas/PetMeet/pull/7) |
+| DEF-13 | Não há exclusão nem inativação de adotante (a API não tem nenhuma rota `DELETE`) | Lista de rotas do OpenAPI | **Corrigido** no [PR #9](https://github.com/mendoncaluucas/PetMeet/pull/9) |
+| DEF-14 | `PATCH` com `null` em adotante, pet ou padrinho ia direto para uma coluna `NOT NULL` e respondia 500. O contrato OpenAPI ainda anunciava esses campos como "aceita nulo". | `PATCH /pets/1 {"nome": null}` → 500; achado ao implementar o 1.6, em 29/09 | **Corrigido** nos [PRs #9](https://github.com/mendoncaluucas/PetMeet/pull/9) (adotante) e [#11](https://github.com/mendoncaluucas/PetMeet/pull/11) (pet e padrinho) |
 
 ### 2.3 Armadilhas técnicas que as mudanças planejadas vão encontrar
 
@@ -196,3 +197,44 @@ Se a fase 3 fechar em 23/10, a semana seguinte vira margem para o extra 2.7 ou p
 ## 7. Acompanhamento
 
 A execução é acompanhada pelos pull requests e pelas issues. Este documento é atualizado no fim de cada fase: o que entrou, o que escorregou e por quê.
+
+### Fim da fase 1 — 08/10/2026
+
+**Entrou na `develop`** — 11 PRs; testes de 20 para **78**; migrations `0002` a `0004`.
+
+| Item | PR | Item | PR |
+|---|---|---|---|
+| 0.1 Checks do CI obrigatórios | configuração do repositório, 25/09 | 1.5 Senha acima de 72 bytes | [#5](https://github.com/mendoncaluucas/PetMeet/pull/5) |
+| 0.4 Reconciliação da migration | [#3](https://github.com/mendoncaluucas/PetMeet/pull/3) | 1.6 Excluir ou inativar adotante | [#9](https://github.com/mendoncaluucas/PetMeet/pull/9) |
+| 1.1 Situação de adoção só pelo processo | [#8](https://github.com/mendoncaluucas/PetMeet/pull/8) | 1.8 Perfil do usuário no painel | [#10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| 1.2 Cancelar × finalizar ao mesmo tempo | [#4](https://github.com/mendoncaluucas/PetMeet/pull/4) | 1.9 Resumo do Painel no banco | [#10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| 1.4 CPF e cadastro duplicado | [#7](https://github.com/mendoncaluucas/PetMeet/pull/7) | 1.10 Seed idempotente | [#6](https://github.com/mendoncaluucas/PetMeet/pull/6) |
+
+Os itens 0.5 (lock de dependências, `tzdata`, constante do Starlette) e 0.6 (`.gitattributes`, runner `ubuntu-24.04`) entram no PR que traz esta atualização.
+
+**Achados na verificação antes do merge** — defeitos que as próprias mudanças criariam e que não chegaram à `develop`:
+
+| PR | Achado | Como apareceu |
+|---|---|---|
+| [#8](https://github.com/mendoncaluucas/PetMeet/pull/8) | Sem a rota manual, um pet "em processo" sem processo ativo ficaria preso para sempre — a migration `0003` passou a alinhar esses dados | pet montado no estado antigo, tentativa de abrir processo |
+| [#8](https://github.com/mendoncaluucas/PetMeet/pull/8) | O auxiliar de duplicidade respondia qualquer erro de integridade como "já existe" | chave externa quebrada de propósito |
+| [#9](https://github.com/mendoncaluucas/PetMeet/pull/9) | Editar ou inativar um adotante enquanto outra pessoa o exclui respondia 500 | estresse: 18 de 20 rodadas |
+| [#10](https://github.com/mendoncaluucas/PetMeet/pull/10) | Com o `/auth/me` falhando, a tela Equipe ficava carregando para sempre | `fetch` interceptado no navegador |
+| [#11](https://github.com/mendoncaluucas/PetMeet/pull/11) | O contrato OpenAPI anunciava como "aceita nulo" campos que a API recusa | leitura do `/openapi.json` |
+
+**O que escorregou e por quê**
+
+| Item | Situação | Motivo |
+|---|---|---|
+| 1.3 Regra crítica | não iniciado | aguarda a decisão D1 do professor |
+| 0.2 Equipe no repositório | parcial | Henrique entrou; convites de Kaua e Willian pendentes desde 24/09; Vinicius e Nicholas não convidados |
+| 0.3 Issues e registro dos defeitos | não iniciado | issues continuam desligadas; os defeitos ficaram registrados nesta seção 2.2 e nos PRs |
+| 0.7 e 0.8 Acordo e decisões D1–D6 | sem registro no repositório | dependem do PO e do professor |
+| 1.7, 1.11, 1.12 | não iniciados | tela de processos (Frontend), requisitos e documentos herdados (Requisitos), roteiro de regressão (QA) |
+
+**Processo.** Os 11 PRs entraram por bypass de administrador, sem revisão de outro integrante — o DoD do acordo pede aprovação, e com os convites pendentes não havia quem aprovasse. Os checks obrigatórios do CI funcionaram em todos.
+
+**Para a fase 2**
+- As histórias da ficha clínica e da vacinação venciam em 07/10 (item 2.1) e não chegaram: definir quem escreve os critérios de aceite antes de começar.
+- O resumo do Painel exige perfil admin ou voluntário, porque traz nomes de adotantes. O perfil veterinário receberia **403 na página inicial** — decidir entre um resumo sem nomes ou outra página inicial para ele.
+- Quem atualizar a `develop` reinstala as dependências pelo lock: `pip install -r requirements-dev.lock` e `pip install --no-deps -e .`.
