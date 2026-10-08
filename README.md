@@ -46,13 +46,34 @@ Detalhes completos em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) e
 ## Instalacao (ambiente local, sem Docker)
 
 ```bash
-python -m venv .venv
+python -m venv .venv        # Windows: py -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -r requirements-dev.lock
+pip install --no-deps -e .
 cp .env.example .env
 ```
 
+As dependencias vem das versoes travadas em `requirements-dev.lock` (e
+`requirements.lock`, sem as ferramentas de desenvolvimento, usado pela imagem
+Docker). Assim o projeto nao quebra sozinho quando sai versao nova de uma
+biblioteca.
+
 Ajuste o `.env` se necessario (usuario/senha do Postgres, `SECRET_KEY`, etc).
+
+### Atualizar ou acrescentar dependencias
+
+Edite o `pyproject.toml` e regenere os dois locks. O CI falha se o `pyproject.toml`
+mudar sem os locks acompanharem. O `uv` ja vem no `requirements-dev.lock`, na mesma
+versao que o CI usa.
+
+```bash
+uv pip compile pyproject.toml --universal --python-version 3.11 --no-header -o requirements.lock
+uv pip compile pyproject.toml --extra dev --universal --python-version 3.11 --no-header -o requirements-dev.lock
+```
+
+`--universal` grava as condicoes de plataforma: o mesmo lock serve no Windows e no
+Linux (o `uvloop`, por exemplo, so instala fora do Windows). Para subir uma versao
+especifica, acrescente `--upgrade-package nome-do-pacote`.
 
 Suba um Postgres local (ou use `docker compose up -d db` — veja abaixo) e
 depois rode as migrations:
