@@ -1,0 +1,10 @@
+# Quebra de linha LF no repositorio e na copia de trabalho, em qualquer sistema.
+# Sem isto, o core.autocrlf do Windows deixava as copias em CRLF e o Prettier acusava
+# todos os arquivos do frontend.
+* text=auto eol=lf
+
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary
+*.ico binary

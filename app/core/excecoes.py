@@ -39,7 +39,8 @@ class CredenciaisInvalidasError(ErroPetMeet):
 
 
 _MAPA_STATUS: dict[type[ErroPetMeet], int] = {
-    RegraNegocioError: status.HTTP_422_UNPROCESSABLE_ENTITY,
+    # O nome antigo, HTTP_422_UNPROCESSABLE_ENTITY, esta deprecado no Starlette e vai sair.
+    RegraNegocioError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     RecursoNaoEncontradoError: status.HTTP_404_NOT_FOUND,
     ConflitoError: status.HTTP_409_CONFLICT,
     NaoAutorizadoError: status.HTTP_403_FORBIDDEN,
