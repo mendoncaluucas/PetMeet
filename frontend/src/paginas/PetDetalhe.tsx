@@ -171,8 +171,8 @@ export function PetDetalhe() {
                   )}
                   {pet.status_saude === 'em_tratamento_medico' ? (
                     <Aviso tom="atencao">
-                      Para finalizar uma adoção deste pet, a equipe precisa confirmar que o
-                      acompanhamento médico está em dia.
+                      Enquanto estiver em tratamento, a adoção deste pet não pode ser finalizada.
+                      Ela fica liberada depois da alta médica.
                     </Aviso>
                   ) : null}
                 </div>

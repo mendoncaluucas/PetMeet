@@ -8,7 +8,7 @@ import {
   processos as apiProcessos,
 } from '../api/recursos'
 import type { Adotante, Pet, ProcessoAdocao, StatusProcessoAdocao } from '../api/tipos'
-import { CampoMarcador, CampoSelecao } from '../componentes/Campos'
+import { CampoSelecao } from '../componentes/Campos'
 import {
   Aviso,
   CabecalhoPagina,
@@ -293,30 +293,26 @@ interface AtualizarProps {
 }
 
 /**
- * Finalizar e a unica transicao com regra propria: se o pet esta em tratamento
- * medico, a API so aceita com acompanhamento_medico_em_dia = true (RN01/RF16).
- * A caixa de confirmacao aparece apenas nesse caso, e a recusa da API (422) ou
- * o conflito de concorrencia (409) sao explicados com o que fazer em seguida.
+ * Finalizar e a unica transicao com regra propria: pet em tratamento medico nao tem a
+ * adocao finalizada, sem excecao (RN01/RF16, decisao D1). A tela avisa e bloqueia antes
+ * de enviar; a API recusa do mesmo jeito (422). O conflito de concorrencia (409) e
+ * explicado com o que fazer em seguida.
  */
 function AtualizarProcesso({ processo, pet, adotante, aoFechar, aoSalvar }: AtualizarProps) {
   const opcoes = PROXIMOS_STATUS[processo.status]
   const [status, setStatus] = useState<StatusProcessoAdocao>(opcoes[0])
-  const [acompanhamento, setAcompanhamento] = useState(processo.acompanhamento_medico_em_dia)
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
 
   const emTratamento = pet?.status_saude === 'em_tratamento_medico'
-  const precisaConfirmar = status === 'finalizado' && emTratamento
+  const finalizacaoBloqueada = status === 'finalizado' && emTratamento
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
     setErro(null)
     setSalvando(true)
     try {
-      await apiProcessos.atualizarStatus(processo.id, {
-        status,
-        acompanhamento_medico_em_dia: acompanhamento,
-      })
+      await apiProcessos.atualizarStatus(processo.id, { status })
       aoSalvar(status)
     } catch (problema) {
       if (problema instanceof ErroApi && problema.ehConflito) {
@@ -355,19 +351,11 @@ function AtualizarProcesso({ processo, pet, adotante, aoFechar, aoSalvar }: Atua
           ))}
         </CampoSelecao>
 
-        {precisaConfirmar ? (
-          <>
-            <Aviso tom="atencao">
-              {pet?.nome} está em tratamento de <strong>{pet?.doenca_atual}</strong>. A adoção só
-              pode ser finalizada com o acompanhamento médico em dia.
-            </Aviso>
-            <CampoMarcador
-              rotulo="O acompanhamento médico está em dia"
-              dica="Confirme apenas se as consultas e o tratamento estiverem atualizados na ficha do animal."
-              checked={acompanhamento}
-              onChange={(evento) => setAcompanhamento(evento.target.checked)}
-            />
-          </>
+        {finalizacaoBloqueada ? (
+          <Aviso tom="atencao">
+            {pet?.nome} está em tratamento de <strong>{pet?.doenca_atual}</strong>. A adoção só pode
+            ser finalizada depois da alta médica.
+          </Aviso>
         ) : null}
 
         {status === 'cancelado' ? (
@@ -381,7 +369,7 @@ function AtualizarProcesso({ processo, pet, adotante, aoFechar, aoSalvar }: Atua
             type="submit"
             className="botao"
             data-tipo={status === 'cancelado' ? 'perigo' : undefined}
-            disabled={salvando || (precisaConfirmar && !acompanhamento)}
+            disabled={salvando || finalizacaoBloqueada}
           >
             {salvando ? 'Salvando…' : rotuloDoBotao(status)}
           </button>

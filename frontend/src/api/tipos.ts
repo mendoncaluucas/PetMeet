@@ -111,7 +111,6 @@ export interface ProcessoAdocaoCriar {
 
 export interface ProcessoAdocaoAtualizarStatus {
   status: StatusProcessoAdocao
-  acompanhamento_medico_em_dia: boolean
 }
 
 export interface Doacao {

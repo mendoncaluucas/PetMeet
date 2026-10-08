@@ -175,7 +175,7 @@ function montarManchete(emTratamento: number, aguardando: number, disponiveis: n
     return (
       <>
         <span className="numero-destaque">{contagem(emTratamento, 'pet está', 'pets estão')}</span>{' '}
-        em tratamento médico. A adoção deles só pode ser finalizada com o acompanhamento em dia.
+        em tratamento médico. A adoção deles só pode ser finalizada depois da alta médica.
       </>
     )
   }
