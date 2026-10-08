@@ -7,7 +7,16 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import obter_configuracoes
 from app.core.excecoes import registrar_tratamento_erros
 from app.core.logging import configurar_logging
-from app.rotas import adotantes, auth, doacoes, padrinhos, pets, processos_adocao, usuarios
+from app.rotas import (
+    adotantes,
+    auth,
+    doacoes,
+    padrinhos,
+    painel,
+    pets,
+    processos_adocao,
+    usuarios,
+)
 
 configuracoes = obter_configuracoes()
 configurar_logging()
@@ -37,6 +46,7 @@ app.include_router(adotantes.roteador)
 app.include_router(padrinhos.roteador)
 app.include_router(processos_adocao.roteador)
 app.include_router(doacoes.roteador)
+app.include_router(painel.roteador)
 
 
 @app.get("/saude", tags=["Infra"])

@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
-import { adotantes, doacoes, pets, processos } from '../api/recursos'
-import type { Adotante, Doacao, Pet, ProcessoAdocao } from '../api/tipos'
+import { painel } from '../api/recursos'
 import { Aviso, Carregando, EstadoVazio, Selo } from '../componentes/Interface'
 import {
   STATUS_PROCESSO,
@@ -12,81 +11,43 @@ import {
 } from '../util/formato'
 import { useRequisicao } from '../util/useRequisicao'
 
-const LIMITE = 100
-
-interface Carga {
-  pets: Pet[]
-  totalPets: number
-  processos: ProcessoAdocao[]
-  adotantes: Adotante[]
-  doacoes: Doacao[]
-}
-
-async function carregarPainel(): Promise<Carga> {
-  const [listaPets, listaProcessos, listaAdotantes, listaDoacoes] = await Promise.all([
-    pets.listar({ tamanho_pagina: LIMITE }),
-    processos.listar({ tamanho_pagina: LIMITE }),
-    adotantes.listar(1, LIMITE, true), // inclui inativos: dao nome aos processos antigos
-    doacoes.listar({ tamanho_pagina: LIMITE }),
-  ])
-  return {
-    pets: listaPets.itens,
-    totalPets: listaPets.total,
-    processos: listaProcessos.itens,
-    adotantes: listaAdotantes.itens,
-    doacoes: listaDoacoes.itens,
-  }
-}
-
+/**
+ * Tudo vem de GET /painel/resumo. O Painel baixava as primeiras 100 linhas de cada
+ * listagem e contava no navegador: passando de 100, os numeros ficavam errados, e o mes
+ * do "recebido este mes" era o de UTC (DEF-09, DEF-10).
+ */
 export function Painel() {
-  const { dados, carregando, erro } = useRequisicao(carregarPainel, [])
+  const { dados, carregando, erro } = useRequisicao(painel.resumo, [])
 
   if (carregando) return <Carregando texto="Reunindo as pendências do dia…" />
   if (erro) return <Aviso>{erro}</Aviso>
   if (!dados) return null
 
-  const emTratamento = dados.pets.filter((pet) => pet.status_saude === 'em_tratamento_medico')
-  const disponiveis = dados.pets.filter((pet) => pet.situacao_adocao === 'disponivel')
-  const emAndamento = dados.processos.filter(
-    (processo) => processo.status === 'em_analise' || processo.status === 'aprovado',
-  )
-  const aguardandoFinalizacao = emAndamento.filter((processo) => processo.status === 'aprovado')
-
-  const nomeDoPet = new Map(dados.pets.map((pet) => [pet.id, pet.nome]))
-  const petPorId = new Map(dados.pets.map((pet) => [pet.id, pet]))
-  const nomeDoAdotante = new Map(dados.adotantes.map((pessoa) => [pessoa.id, pessoa.nome]))
-
-  // Quem espera ha mais tempo e quem a ONG precisa divulgar primeiro.
-  const esperandoHaMaisTempo = [...disponiveis]
-    .sort((a, b) => a.data_resgate.localeCompare(b.data_resgate))
-    .slice(0, 5)
-
-  const mesAtual = new Date().toISOString().slice(0, 7)
-  const totalDoMes = dados.doacoes
-    .filter((doacao) => doacao.data.startsWith(mesAtual))
-    .reduce((soma, doacao) => soma + Number(doacao.valor), 0)
-
   return (
     <>
       <section className="destaque">
         <p>
-          {montarManchete(emTratamento.length, aguardandoFinalizacao.length, disponiveis.length)}
+          {montarManchete(
+            dados.pets_em_tratamento,
+            dados.processos_aguardando_finalizacao,
+            dados.pets_disponiveis,
+          )}
         </p>
         <div className="destaque-rodape">
           <span className="destaque-medida">
-            <b>{dados.totalPets}</b>
+            <b>{dados.pets_total}</b>
             pets no abrigo
           </span>
           <span className="destaque-medida">
-            <b>{disponiveis.length}</b>
+            <b>{dados.pets_disponiveis}</b>
             disponíveis para adoção
           </span>
           <span className="destaque-medida">
-            <b>{emAndamento.length}</b>
+            <b>{dados.processos_em_andamento}</b>
             adoções em andamento
           </span>
           <span className="destaque-medida">
-            <b>{formatarMoeda(totalDoMes)}</b>
+            <b>{formatarMoeda(dados.doacoes_do_mes_total)}</b>
             recebido este mês
           </span>
         </div>
@@ -101,14 +62,14 @@ export function Painel() {
             </Link>
           </div>
 
-          {emTratamento.length === 0 ? (
+          {dados.em_tratamento.length === 0 ? (
             <EstadoVazio
               titulo="Nenhum pet em tratamento"
               descricao="Quando um animal entrar em tratamento médico, ele aparece aqui até a alta."
             />
           ) : (
             <div className="lista-atencao">
-              {emTratamento.map((pet) => (
+              {dados.em_tratamento.map((pet) => (
                 <Link
                   key={pet.id}
                   to={`/pets/${pet.id}`}
@@ -138,7 +99,7 @@ export function Painel() {
             </Link>
           </div>
 
-          {emAndamento.length === 0 ? (
+          {dados.em_andamento.length === 0 ? (
             <EstadoVazio
               titulo="Nenhuma adoção em andamento"
               descricao="Abra um processo a partir da ficha de um pet disponível."
@@ -150,42 +111,35 @@ export function Painel() {
             />
           ) : (
             <div className="lista-atencao">
-              {emAndamento.map((processo) => {
-                const pet = petPorId.get(processo.pet_id)
-                return (
-                  <Link
-                    key={processo.id}
-                    to="/adocoes"
-                    className="item-atencao"
-                    data-saude={pet?.status_saude}
-                  >
-                    <span>
-                      <span className="item-atencao-nome">
-                        {nomeDoPet.get(processo.pet_id) ?? `Pet #${processo.pet_id}`}
-                      </span>
-                      <span className="item-atencao-detalhe">
-                        com{' '}
-                        {nomeDoAdotante.get(processo.adotante_id) ??
-                          `adotante #${processo.adotante_id}`}
-                        {pet?.status_saude === 'em_tratamento_medico'
-                          ? ` — ${STATUS_SAUDE.em_tratamento_medico.toLowerCase()}`
-                          : ''}
-                      </span>
+              {dados.em_andamento.map((processo) => (
+                <Link
+                  key={processo.id}
+                  to="/adocoes"
+                  className="item-atencao"
+                  data-saude={processo.pet_status_saude}
+                >
+                  <span>
+                    <span className="item-atencao-nome">{processo.pet_nome}</span>
+                    <span className="item-atencao-detalhe">
+                      com {processo.adotante_nome}
+                      {processo.pet_status_saude === 'em_tratamento_medico'
+                        ? ` — ${STATUS_SAUDE.em_tratamento_medico.toLowerCase()}`
+                        : ''}
                     </span>
-                    <span className="item-atencao-fim">
-                      <Selo tom={TOM_PROCESSO[processo.status]}>
-                        {STATUS_PROCESSO[processo.status]}
-                      </Selo>
-                    </span>
-                  </Link>
-                )
-              })}
+                  </span>
+                  <span className="item-atencao-fim">
+                    <Selo tom={TOM_PROCESSO[processo.status]}>
+                      {STATUS_PROCESSO[processo.status]}
+                    </Selo>
+                  </span>
+                </Link>
+              ))}
             </div>
           )}
         </section>
       </div>
 
-      {esperandoHaMaisTempo.length > 0 ? (
+      {dados.esperando_ha_mais_tempo.length > 0 ? (
         <section style={{ marginTop: 'var(--e-6)' }}>
           <div className="secao-titulo">
             <h2>Esperando há mais tempo</h2>
@@ -194,7 +148,7 @@ export function Painel() {
             </Link>
           </div>
           <div className="fila-espera">
-            {esperandoHaMaisTempo.map((pet) => (
+            {dados.esperando_ha_mais_tempo.map((pet) => (
               <Link
                 key={pet.id}
                 to={`/pets/${pet.id}`}
