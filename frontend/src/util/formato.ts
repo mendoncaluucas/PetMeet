@@ -51,6 +51,7 @@ export const TIPOS_DOACAO: Record<FrequenciaContribuicao, string> = {
 export const PERFIS: Record<PerfilUsuario, string> = {
   admin: 'Administrador',
   voluntario: 'Voluntário',
+  veterinario: 'Veterinário',
 }
 
 export const TOM_SAUDE: Record<StatusSaudePet, Tom> = {

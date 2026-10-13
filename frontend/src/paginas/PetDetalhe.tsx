@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ErroApi } from '../api/cliente'
 import { adotantes as apiAdotantes, pets, processos as apiProcessos } from '../api/recursos'
 import type { EspeciePet, Pet, StatusSaudePet } from '../api/tipos'
+import { useAuth } from '../auth/ContextoAuth'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
 import { Aviso, Carregando, Moldura, Selo } from '../componentes/Interface'
 import {
@@ -29,6 +30,8 @@ type Secao = 'nenhuma' | 'dados' | 'saude'
 export function PetDetalhe() {
   const { id } = useParams<{ id: string }>()
   const petId = Number(id)
+  // O veterinario consulta a ficha e da alta; dados, foto e processos sao da equipe.
+  const { ehVeterinario, ehEquipe } = useAuth()
 
   const { dados, carregando, erro } = useRequisicao(() => pets.obter(petId), [petId])
   const [pet, setPet] = useState<Pet | null>(null)
@@ -77,12 +80,14 @@ export function PetDetalhe() {
       <div className="detalhe-pet">
         <div className="detalhe-coluna-foto">
           <Moldura url={pet.foto_url} nome={pet.nome} formato="retrato" />
-          <EnvioDeFoto
-            petId={pet.id}
-            temFoto={Boolean(pet.foto_url)}
-            aoEnviar={(atualizado) => aplicar(atualizado, 'Foto enviada.')}
-            aoFalhar={(texto) => setMensagem({ tom: 'erro', texto })}
-          />
+          {ehEquipe ? (
+            <EnvioDeFoto
+              petId={pet.id}
+              temFoto={Boolean(pet.foto_url)}
+              aoEnviar={(atualizado) => aplicar(atualizado, 'Foto enviada.')}
+              aoFalhar={(texto) => setMensagem({ tom: 'erro', texto })}
+            />
+          ) : null}
         </div>
 
         <div className="detalhe-blocos">
@@ -93,14 +98,16 @@ export function PetDetalhe() {
             <div className="ficha-corpo">
               <div className="secao-titulo">
                 <h2>Dados do animal</h2>
-                <button
-                  type="button"
-                  className="botao"
-                  data-tipo="texto"
-                  onClick={() => setSecao(secao === 'dados' ? 'nenhuma' : 'dados')}
-                >
-                  {secao === 'dados' ? 'Fechar' : 'Editar'}
-                </button>
+                {ehEquipe ? (
+                  <button
+                    type="button"
+                    className="botao"
+                    data-tipo="texto"
+                    onClick={() => setSecao(secao === 'dados' ? 'nenhuma' : 'dados')}
+                  >
+                    {secao === 'dados' ? 'Fechar' : 'Editar'}
+                  </button>
+                ) : null}
               </div>
 
               {secao === 'dados' ? (
@@ -155,6 +162,7 @@ export function PetDetalhe() {
               {secao === 'saude' ? (
                 <FormularioSaude
                   pet={pet}
+                  podeDarAlta={ehVeterinario}
                   aoSalvar={(atualizado) => aplicar(atualizado, 'Ficha médica atualizada.')}
                   aoFalhar={(problema) => falhar(problema, 'Não foi possível atualizar a ficha.')}
                   aoCancelar={() => setSecao('nenhuma')}
@@ -172,7 +180,7 @@ export function PetDetalhe() {
                   {pet.status_saude === 'em_tratamento_medico' ? (
                     <Aviso tom="atencao">
                       Enquanto estiver em tratamento, a adoção deste pet não pode ser finalizada.
-                      Ela fica liberada depois da alta médica.
+                      Ela fica liberada depois da alta médica, que só o veterinário registra.
                     </Aviso>
                   ) : null}
                 </div>
@@ -196,7 +204,7 @@ export function PetDetalhe() {
             </div>
           </section>
 
-          <ProcessosDoPet petId={pet.id} />
+          {ehEquipe ? <ProcessosDoPet petId={pet.id} /> : null}
         </div>
       </div>
     </>
@@ -345,13 +353,19 @@ function FormularioDados({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
   )
 }
 
-function FormularioSaude({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
+interface FormSaudeProps extends FormProps {
+  /** So o veterinario tira um pet de "em tratamento medico" (a API responde 403 aos demais). */
+  podeDarAlta: boolean
+}
+
+function FormularioSaude({ pet, podeDarAlta, aoSalvar, aoFalhar, aoCancelar }: FormSaudeProps) {
   const [status, setStatus] = useState<StatusSaudePet>(pet.status_saude)
   const [doenca, setDoenca] = useState(pet.doenca_atual ?? '')
   const [erroDoenca, setErroDoenca] = useState<string | undefined>()
   const [salvando, setSalvando] = useState(false)
 
   const exigeDoenca = status === 'em_tratamento_medico'
+  const altaBloqueada = pet.status_saude === 'em_tratamento_medico' && !podeDarAlta
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
@@ -381,9 +395,22 @@ function FormularioSaude({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
       <CampoSelecao
         rotulo="Estado de saúde"
         value={status}
+        dica={
+          altaBloqueada
+            ? 'Alta só pelo veterinário. Aqui você pode corrigir a doença informada.'
+            : undefined
+        }
         onChange={(e) => setStatus(e.target.value as StatusSaudePet)}
       >
-        {opcoesDe(STATUS_SAUDE)}
+        {(Object.entries(STATUS_SAUDE) as [StatusSaudePet, string][]).map(([valor, rotulo]) => (
+          <option
+            key={valor}
+            value={valor}
+            disabled={altaBloqueada && valor !== 'em_tratamento_medico'}
+          >
+            {rotulo}
+          </option>
+        ))}
       </CampoSelecao>
 
       {exigeDoenca ? (

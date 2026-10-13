@@ -21,6 +21,14 @@ interface Sessao {
   /** /auth/me falhou por outro motivo que nao 401: o perfil nao vai chegar sozinho. */
   perfilFalhou: boolean
   ehAdmin: boolean
+  /** Perfil clinico: ve os pets e cuida da saude deles, sem acesso a cadastros de pessoas. */
+  ehVeterinario: boolean
+  /**
+   * Admin ou voluntario, ja confirmado pelo /auth/me. Falso enquanto o perfil nao chegou,
+   * para a tela nao disparar requisicoes que o veterinario receberia como 403. Se o
+   * /auth/me falhar, volta a valer: as telas da equipe abrem como antes e a API decide.
+   */
+  ehEquipe: boolean
   entrar: (email: string, senha: string) => Promise<void>
   sair: () => void
 }
@@ -108,6 +116,10 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
       usuario,
       perfilFalhou,
       ehAdmin: usuario?.perfil === 'admin',
+      ehVeterinario: usuario?.perfil === 'veterinario',
+      ehEquipe: usuario
+        ? usuario.perfil === 'admin' || usuario.perfil === 'voluntario'
+        : perfilFalhou,
       entrar,
       sair,
     }),

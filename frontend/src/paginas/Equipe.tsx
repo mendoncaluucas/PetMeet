@@ -110,7 +110,7 @@ export function Equipe() {
               rotulo="Perfil"
               value={perfil}
               erro={errosCampo.perfil}
-              dica="Voluntários operam os cadastros do dia a dia. Administradores também criam contas."
+              dica="Voluntários operam os cadastros do dia a dia. Administradores também criam contas. Veterinários cuidam da saúde dos pets e são os únicos que dão alta de um tratamento."
               onChange={(evento) => setPerfil(evento.target.value as PerfilUsuario)}
             >
               {opcoesDe(PERFIS)}
