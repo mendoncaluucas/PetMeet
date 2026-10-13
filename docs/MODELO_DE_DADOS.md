@@ -6,6 +6,8 @@ erDiagram
     USUARIOS ||--o{ LOGS_AUDITORIA : "autor"
     PETS ||--o{ PROCESSOS_ADOCAO : "e adotado em"
     PETS ||--o{ APADRINHAMENTOS : "e apadrinhado em"
+    PETS ||--o{ ATENDIMENTOS_CLINICOS : "tem na ficha clinica"
+    USUARIOS ||--o{ ATENDIMENTOS_CLINICOS : "veterinario que registrou"
     ADOTANTES ||--o{ PROCESSOS_ADOCAO : "solicita"
     PADRINHOS ||--o{ APADRINHAMENTOS : "apadrinha"
     PADRINHOS ||--o{ DOACOES : "contribui com"
@@ -68,6 +70,18 @@ erDiagram
         date data
         enum tipo "pontual | recorrente"
     }
+    ATENDIMENTOS_CLINICOS {
+        int id PK
+        int pet_id FK "RESTRICT"
+        int veterinario_id FK "RESTRICT"
+        date data_atendimento "nao pode estar no futuro (dia de Brasilia)"
+        string anamnese
+        string diagnostico
+        string conduta
+        datetime anulado_em "nulo se valido"
+        int anulado_por_id FK
+        string motivo_anulacao
+    }
     LOGS_AUDITORIA {
         int id PK
         int usuario_id FK
@@ -90,6 +104,9 @@ erDiagram
 | `processos_adocao (pet_id) WHERE status='finalizado'` | UNIQUE parcial | **RN02/RF17**: um pet, no máximo, um processo finalizado |
 | `doacoes.valor` | CHECK `valor > 0` | **RN05**, reforçada tambem no schema Pydantic |
 | `doacoes.data` | indice | consultas por período (RF13) |
+| `atendimentos_clinicos (pet_id, data_atendimento)` | indice | ficha clínica do pet, do mais recente para o mais antigo |
+| `atendimentos_clinicos` | CHECK anulação completa | anulado = quando, quem e motivo juntos; atendimento não é editado nem apagado (D8) |
+| `atendimentos_clinicos.pet_id` | FK `RESTRICT`, sem cascade no modelo | apagar um pet não leva o histórico clínico junto (A-09) |
 
 ## Por que `doenca_atual` e `acompanhamento_medico_em_dia` existem
 

@@ -105,6 +105,16 @@ async def _criar_usuario(sessao: AsyncSession, perfil: PerfilUsuario, email: str
     return usuario
 
 
+async def cabecalho_do_perfil(sessao: AsyncSession, perfil: PerfilUsuario) -> dict[str, str]:
+    """Cabecalho de um usuario novo do perfil, para testes parametrizados por perfil.
+
+    O e-mail e outro que o das fixtures cabecalho_<perfil>: as duas formas podem conviver
+    no mesmo teste sem esbarrar no e-mail unico.
+    """
+    usuario = await _criar_usuario(sessao, perfil, f"{perfil.value}.outro@petmeet.org.br")
+    return {"Authorization": f"Bearer {criar_token_acesso({'sub': usuario.email})}"}
+
+
 @pytest_asyncio.fixture
 async def cabecalho_admin(sessao: AsyncSession) -> dict[str, str]:
     usuario = await _criar_usuario(sessao, PerfilUsuario.ADMIN, "admin@petmeet.org.br")

@@ -12,7 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import NaoAutorizadoError
-from app.core.seguranca import criar_token_acesso
 from app.esquemas.pet import PetAtualizarStatusSaude
 from app.main import app
 from app.modelos.enums import EspeciePet, PerfilUsuario, StatusSaudePet
@@ -20,7 +19,7 @@ from app.modelos.log_auditoria import LogAuditoria
 from app.modelos.pet import Pet
 from app.modelos.usuario import Usuario
 from app.servicos import pet as servico_pet
-from testes.conftest import FabricaSessaoTeste, _criar_usuario, esperar_conexoes_bloqueadas
+from testes.conftest import FabricaSessaoTeste, cabecalho_do_perfil, esperar_conexoes_bloqueadas
 
 # O que o veterinario pode usar (matriz da secao 2). Qualquer outra rota protegida,
 # inclusive as que forem criadas depois, tem de responder 403 para ele.
@@ -29,6 +28,9 @@ _ROTAS_DO_VETERINARIO = {
     ("GET", "/pets"),
     ("GET", "/pets/{pet_id}"),
     ("PATCH", "/pets/{pet_id}/status-saude"),
+    ("GET", "/pets/{pet_id}/atendimentos"),
+    ("POST", "/pets/{pet_id}/atendimentos"),
+    ("POST", "/atendimentos/{atendimento_id}/anulacao"),
 }
 
 
@@ -64,11 +66,6 @@ async def _criar_pet(
     await sessao.commit()
     await sessao.refresh(pet)
     return pet
-
-
-async def _cabecalho(sessao: AsyncSession, perfil: PerfilUsuario) -> dict[str, str]:
-    usuario = await _criar_usuario(sessao, perfil, f"{perfil.value}@petmeet.org.br")
-    return {"Authorization": f"Bearer {criar_token_acesso({'sub': usuario.email})}"}
 
 
 _EQUIPE = [PerfilUsuario.ADMIN, PerfilUsuario.VOLUNTARIO]
@@ -154,7 +151,7 @@ async def test_equipe_coloca_pet_em_tratamento(
     resposta = await client.patch(
         f"/pets/{pet.id}/status-saude",
         json={"status_saude": "em_tratamento_medico", "doenca_atual": "Cinomose"},
-        headers=await _cabecalho(sessao, perfil),
+        headers=await cabecalho_do_perfil(sessao, perfil),
     )
 
     assert resposta.status_code == 200
@@ -174,7 +171,7 @@ async def test_equipe_nao_da_alta_de_tratamento(
     resposta = await client.patch(
         f"/pets/{pet.id}/status-saude",
         json={"status_saude": destino},
-        headers=await _cabecalho(sessao, perfil),
+        headers=await cabecalho_do_perfil(sessao, perfil),
     )
 
     assert resposta.status_code == 403
