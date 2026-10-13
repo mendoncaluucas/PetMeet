@@ -2,6 +2,7 @@
 
 from app.modelos.adotante import Adotante
 from app.modelos.apadrinhamento import Apadrinhamento
+from app.modelos.atendimento_clinico import AtendimentoClinico
 from app.modelos.doacao import Doacao
 from app.modelos.log_auditoria import LogAuditoria
 from app.modelos.padrinho import Padrinho
@@ -11,6 +12,7 @@ from app.modelos.usuario import Usuario
 
 __all__ = [
     "Adotante",
+    "AtendimentoClinico",
     "Apadrinhamento",
     "Doacao",
     "LogAuditoria",

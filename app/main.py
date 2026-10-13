@@ -9,6 +9,7 @@ from app.core.excecoes import registrar_tratamento_erros
 from app.core.logging import configurar_logging
 from app.rotas import (
     adotantes,
+    atendimentos,
     auth,
     doacoes,
     padrinhos,
@@ -42,6 +43,7 @@ app.mount("/uploads", StaticFiles(directory=configuracoes.DIRETORIO_UPLOADS), na
 app.include_router(auth.roteador)
 app.include_router(usuarios.roteador)
 app.include_router(pets.roteador)
+app.include_router(atendimentos.roteador)
 app.include_router(adotantes.roteador)
 app.include_router(padrinhos.roteador)
 app.include_router(processos_adocao.roteador)

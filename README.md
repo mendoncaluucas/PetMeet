@@ -233,8 +233,9 @@ implementar as rotas/servicos especificos):
 - **RF13** — filtros avançados de consulta de doações.
 - **RF19** — concluído: o upload está implementado na API e integrado no
   painel (ficha do pet, em `frontend/src/paginas/PetDetalhe.tsx`).
-- **RF22** — o modelo `LogAuditoria` já existe; falta instrumentar os
-  serviços para gravar cada alteração relevante.
+- **RF22** — instrumentado no N2 para as mudanças de status de saúde do pet
+  (`app/servicos/auditoria.py`); os demais serviços entram conforme as
+  evoluções. A ficha clínica guarda a própria anulação (quem, quando, motivo).
 - **RNF06-RNF10, RNF12, RNF15-RNF20** — observabilidade avançada, cache,
   backup/recuperação automatizados e monitoramento de dependências ficam a
   cargo do time de DevOps/infra a partir da base aqui entregue.
