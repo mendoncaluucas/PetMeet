@@ -4,6 +4,8 @@ import { consulta, requisitar } from './cliente'
 import type {
   Adotante,
   AdotanteCriar,
+  Atendimento,
+  AtendimentoCriar,
   Doacao,
   DoacaoCriar,
   EspeciePet,
@@ -145,4 +147,23 @@ export const usuarios = {
 export const painel = {
   /** Contagens, total de doacoes do mes e listas curtas, tudo calculado no banco. */
   resumo: () => requisitar<ResumoPainel>('/painel/resumo'),
+}
+
+export const atendimentos = {
+  /** Ficha clinica do pet, do mais recente para o mais antigo, com os anulados. */
+  listar: (petId: number, pagina = 1, tamanho_pagina = 20) =>
+    requisitar<PaginaResposta<Atendimento>>(
+      `/pets/${petId}/atendimentos${consulta({ pagina, tamanho_pagina })}`,
+    ),
+
+  /** So o veterinario registra (D7); os demais perfis recebem 403. */
+  registrar: (petId: number, dados: AtendimentoCriar) =>
+    requisitar<Atendimento>(`/pets/${petId}/atendimentos`, { metodo: 'POST', corpo: dados }),
+
+  /** Nao apaga: o atendimento fica na ficha, marcado como anulado (D8). */
+  anular: (id: number, motivo: string) =>
+    requisitar<Atendimento>(`/atendimentos/${id}/anulacao`, {
+      metodo: 'POST',
+      corpo: { motivo },
+    }),
 }

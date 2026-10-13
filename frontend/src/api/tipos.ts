@@ -183,3 +183,26 @@ export interface ResumoPainel {
   em_andamento: ProcessoResumido[]
   esperando_ha_mais_tempo: PetResumido[]
 }
+
+/** Ficha clinica (app/esquemas/atendimento_clinico.py). O autor vem do login. */
+export interface Atendimento {
+  id: number
+  pet_id: number
+  data_atendimento: string
+  anamnese: string
+  diagnostico: string | null
+  conduta: string | null
+  veterinario_id: number
+  veterinario_nome: string
+  criado_em: string
+  anulado_em: string | null
+  anulado_por_nome: string | null
+  motivo_anulacao: string | null
+}
+
+export interface AtendimentoCriar {
+  data_atendimento: string
+  anamnese: string
+  diagnostico?: string | null
+  conduta?: string | null
+}

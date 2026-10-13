@@ -5,6 +5,7 @@ import { ErroApi } from '../api/cliente'
 import { adotantes as apiAdotantes, pets, processos as apiProcessos } from '../api/recursos'
 import type { EspeciePet, Pet, StatusSaudePet } from '../api/tipos'
 import { useAuth } from '../auth/ContextoAuth'
+import { FichaClinica } from '../componentes/FichaClinica'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
 import { Aviso, Carregando, Moldura, Selo } from '../componentes/Interface'
 import {
@@ -144,11 +145,11 @@ export function PetDetalhe() {
             </div>
           </section>
 
-          {/* --- Ficha medica --- */}
+          {/* --- Estado de saude: o status que trava a adocao (RN01) e a alta (H2) --- */}
           <section className="ficha" data-saude={pet.status_saude}>
             <div className="ficha-corpo">
               <div className="secao-titulo">
-                <h2>Ficha médica</h2>
+                <h2>Estado de saúde</h2>
                 <button
                   type="button"
                   className="botao"
@@ -163,8 +164,10 @@ export function PetDetalhe() {
                 <FormularioSaude
                   pet={pet}
                   podeDarAlta={ehVeterinario}
-                  aoSalvar={(atualizado) => aplicar(atualizado, 'Ficha médica atualizada.')}
-                  aoFalhar={(problema) => falhar(problema, 'Não foi possível atualizar a ficha.')}
+                  aoSalvar={(atualizado) => aplicar(atualizado, 'Estado de saúde atualizado.')}
+                  aoFalhar={(problema) =>
+                    falhar(problema, 'Não foi possível atualizar o estado de saúde.')
+                  }
                   aoCancelar={() => setSecao('nenhuma')}
                 />
               ) : (
@@ -187,6 +190,10 @@ export function PetDetalhe() {
               )}
             </div>
           </section>
+
+          {/* key: outro pet, ficha nova. Formulario aberto ou pagina de um pet nao passam
+              para o seguinte (seria o atendimento registrado no pet errado). */}
+          <FichaClinica key={pet.id} petId={pet.id} podeRegistrar={ehVeterinario} />
 
           {/* --- Situacao de adocao: so leitura, muda pelo processo de adocao --- */}
           <section className="ficha">
@@ -426,7 +433,7 @@ function FormularioSaude({ pet, podeDarAlta, aoSalvar, aoFalhar, aoCancelar }: F
 
       <div className="acoes">
         <button type="submit" className="botao" disabled={salvando}>
-          {salvando ? 'Salvando…' : 'Salvar ficha médica'}
+          {salvando ? 'Salvando…' : 'Salvar estado de saúde'}
         </button>
         <button type="button" className="botao" data-tipo="texto" onClick={aoCancelar}>
           Cancelar

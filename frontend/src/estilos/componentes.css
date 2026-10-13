@@ -258,7 +258,8 @@
 }
 
 .campo[data-invalido='sim'] input,
-.campo[data-invalido='sim'] select {
+.campo[data-invalido='sim'] select,
+.campo[data-invalido='sim'] textarea {
   border-color: var(--alerta);
 }
 
@@ -945,4 +946,57 @@
 
 .item-espera[data-saude='saudavel'] {
   border-left-color: var(--jade);
+}
+
+/* --- Ficha clinica (fase 2, H3) ------------------------------------------- */
+
+.lista-atendimentos {
+  display: grid;
+  gap: var(--e-3);
+}
+
+.atendimento {
+  display: grid;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--linha);
+  border-left: 5px solid var(--jade);
+  border-radius: var(--raio);
+}
+
+/* Anulado continua legivel (e historico), mas nao se confunde com um atendimento valido. */
+.atendimento[data-anulado='sim'] {
+  border-left-color: var(--linha-forte);
+  color: var(--texto-fraco);
+}
+
+.atendimento-cabecalho {
+  display: flex;
+  gap: var(--e-3);
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.atendimento-anulacao {
+  margin: 0;
+  font-size: var(--t-sm);
+}
+
+.atendimento-corpo {
+  display: grid;
+  gap: var(--e-2);
+  margin: 0;
+}
+
+.atendimento-corpo dt {
+  font-size: var(--t-sm);
+  color: var(--texto-fraco);
+}
+
+.atendimento-corpo dd {
+  margin: 0;
+  /* Anamnese e conduta vem com quebras de linha digitadas pelo veterinario. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
