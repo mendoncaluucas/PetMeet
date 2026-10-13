@@ -154,7 +154,17 @@ export async function requisitar<T>(caminho: string, opcoes: Opcoes = {}): Promi
 
   if (resposta.status === 204) return undefined as T
 
-  const texto = await resposta.text()
+  // A resposta pode ser cortada no meio da leitura (rede caiu, aba suspensa). A essa altura
+  // o servidor ja pode ter gravado a operacao: repetir as cegas daria erro ou duplicaria.
+  let texto: string
+  try {
+    texto = await resposta.text()
+  } catch {
+    throw new ErroApi(
+      0,
+      'A resposta da API foi interrompida. Atualize a página para ver se a operação foi gravada.',
+    )
+  }
   let dados: unknown = null
   if (texto) {
     try {
