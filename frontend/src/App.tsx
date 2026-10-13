@@ -5,6 +5,7 @@ import { Layout } from './componentes/Layout'
 import { useAuth } from './auth/ContextoAuth'
 import { Login } from './paginas/Login'
 import { Painel } from './paginas/Painel'
+import { PainelVeterinario } from './paginas/PainelVeterinario'
 import { Pets } from './paginas/Pets'
 import { PetNovo } from './paginas/PetNovo'
 import { PetDetalhe } from './paginas/PetDetalhe'
@@ -36,6 +37,29 @@ function ExigeAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+/**
+ * Telas da equipe (admin e voluntario). O veterinario que chegar pela barra de endereco
+ * ve um aviso em vez de uma tela cheia de erros 403. Espera o perfil para nao disparar as
+ * requisicoes da tela antes da hora; se o /auth/me falhar, a tela abre como antes e quem
+ * recusa de verdade e a API.
+ */
+function SoEquipe({ children }: { children: ReactNode }) {
+  const { usuario, perfilFalhou, ehEquipe } = useAuth()
+
+  if (!usuario && !perfilFalhou) return <Carregando texto="Conferindo seu perfil…" />
+  if (!ehEquipe) return <Aviso>Seu perfil não tem acesso a esta tela.</Aviso>
+  return <>{children}</>
+}
+
+/** Pagina inicial: o resumo da equipe traz nomes de adotantes, o do veterinario e clinico. */
+function Inicio() {
+  const { usuario, perfilFalhou, ehVeterinario } = useAuth()
+
+  // Sem o perfil, o Painel da equipe e o que sempre abriu aqui.
+  if (!usuario && !perfilFalhou) return <Carregando texto="Conferindo seu perfil…" />
+  return ehVeterinario ? <PainelVeterinario /> : <Painel />
+}
+
 export function App() {
   const { autenticado } = useAuth()
 
@@ -50,14 +74,49 @@ export function App() {
           </ExigeSessao>
         }
       >
-        <Route index element={<Painel />} />
+        <Route index element={<Inicio />} />
         <Route path="pets" element={<Pets />} />
-        <Route path="pets/novo" element={<PetNovo />} />
         <Route path="pets/:id" element={<PetDetalhe />} />
-        <Route path="adocoes" element={<Adocoes />} />
-        <Route path="adotantes" element={<Adotantes />} />
-        <Route path="padrinhos" element={<Padrinhos />} />
-        <Route path="doacoes" element={<Doacoes />} />
+        <Route
+          path="pets/novo"
+          element={
+            <SoEquipe>
+              <PetNovo />
+            </SoEquipe>
+          }
+        />
+        <Route
+          path="adocoes"
+          element={
+            <SoEquipe>
+              <Adocoes />
+            </SoEquipe>
+          }
+        />
+        <Route
+          path="adotantes"
+          element={
+            <SoEquipe>
+              <Adotantes />
+            </SoEquipe>
+          }
+        />
+        <Route
+          path="padrinhos"
+          element={
+            <SoEquipe>
+              <Padrinhos />
+            </SoEquipe>
+          }
+        />
+        <Route
+          path="doacoes"
+          element={
+            <SoEquipe>
+              <Doacoes />
+            </SoEquipe>
+          }
+        />
         <Route
           path="equipe"
           element={

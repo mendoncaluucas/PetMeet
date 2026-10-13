@@ -13,8 +13,15 @@ const TRABALHO_DIARIO = [
   { para: '/doacoes', rotulo: 'Doações', fim: false },
 ]
 
+// O veterinario nao ve cadastros de pessoas nem adocoes: a API responde 403 a ele.
+const TRABALHO_CLINICO = [
+  { para: '/', rotulo: 'Início', fim: true },
+  { para: '/pets', rotulo: 'Pets', fim: false },
+]
+
 export function Layout() {
-  const { email, usuario, ehAdmin, sair } = useAuth()
+  const { email, usuario, ehAdmin, ehVeterinario, sair } = useAuth()
+  const itens = ehVeterinario ? TRABALHO_CLINICO : TRABALHO_DIARIO
 
   return (
     <div className="app">
@@ -22,10 +29,10 @@ export function Layout() {
         <NavLink to="/" className="trilho-marca">
           Pet<em>Meet</em>
         </NavLink>
-        <p className="trilho-ong">Painel da equipe</p>
+        <p className="trilho-ong">{ehVeterinario ? 'Área clínica' : 'Painel da equipe'}</p>
 
         <div className="trilho-nav">
-          {TRABALHO_DIARIO.map((item) => (
+          {itens.map((item) => (
             <NavLink key={item.para} to={item.para} end={item.fim} className="trilho-link">
               {item.rotulo}
             </NavLink>

@@ -112,6 +112,20 @@ async def cabecalho_admin(sessao: AsyncSession) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest_asyncio.fixture
+async def cabecalho_voluntario(sessao: AsyncSession) -> dict[str, str]:
+    usuario = await _criar_usuario(sessao, PerfilUsuario.VOLUNTARIO, "voluntario@petmeet.org.br")
+    token = criar_token_acesso({"sub": usuario.email})
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def cabecalho_veterinario(sessao: AsyncSession) -> dict[str, str]:
+    usuario = await _criar_usuario(sessao, PerfilUsuario.VETERINARIO, "veterinario@petmeet.org.br")
+    token = criar_token_acesso({"sub": usuario.email})
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture
 def dados_pet_saudavel() -> dict:
     return {

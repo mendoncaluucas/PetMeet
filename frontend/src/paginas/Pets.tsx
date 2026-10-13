@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { pets } from '../api/recursos'
+import { useAuth } from '../auth/ContextoAuth'
 import type { EspeciePet, SituacaoAdocaoPet, StatusSaudePet } from '../api/tipos'
 import { CampoSelecao, opcoesDe } from '../componentes/Campos'
 import {
@@ -27,6 +28,8 @@ const TAMANHO_PAGINA = 12
 /** Os filtros ficam na URL: a busca pode ser compartilhada e sobrevive ao F5. */
 export function Pets() {
   const [parametros, setParametros] = useSearchParams()
+  // Cadastrar pet e da equipe; o veterinario so consulta (POST /pets responde 403).
+  const { ehEquipe } = useAuth()
 
   const pagina = Number(parametros.get('pagina') ?? '1') || 1
   const especie = (parametros.get('especie') ?? '') as EspeciePet | ''
@@ -68,9 +71,11 @@ export function Pets() {
         titulo="Pets"
         descricao="Uma ficha por animal: estado de saúde na tarja da esquerda, situação de adoção no selo."
         acao={
-          <Link to="/pets/novo" className="botao">
-            Cadastrar pet
-          </Link>
+          ehEquipe ? (
+            <Link to="/pets/novo" className="botao">
+              Cadastrar pet
+            </Link>
+          ) : undefined
         }
       />
 
@@ -131,11 +136,11 @@ export function Pets() {
                 >
                   Limpar filtros
                 </button>
-              ) : (
+              ) : ehEquipe ? (
                 <Link to="/pets/novo" className="botao">
                   Cadastrar pet
                 </Link>
-              )
+              ) : undefined
             }
           />
         ) : (

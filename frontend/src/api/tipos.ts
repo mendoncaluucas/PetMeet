@@ -3,7 +3,7 @@
  * Se um schema mudar la, mude aqui tambem - e o unico ponto de acoplamento.
  */
 
-export type PerfilUsuario = 'admin' | 'voluntario'
+export type PerfilUsuario = 'admin' | 'voluntario' | 'veterinario'
 export type EspeciePet = 'cachorro' | 'gato' | 'outro'
 export type StatusSaudePet = 'saudavel' | 'em_tratamento_medico' | 'em_recuperacao'
 export type SituacaoAdocaoPet = 'disponivel' | 'em_processo_adocao' | 'adotado'

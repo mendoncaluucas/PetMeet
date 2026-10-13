@@ -89,6 +89,15 @@ jobs:
       - name: Conferir se modelos e migrations batem
         run: alembic check
 
+      # Os testes montam o banco pelos modelos (create_all), nao pelas migrations. Rodar o
+      # seed aqui grava um usuario de cada perfil no banco que as migrations criaram: um
+      # valor de enum que so existe no modelo quebra neste passo (A-04). Duas vezes para
+      # conferir que o seed nao duplica nada.
+      - name: Popular o banco migrado (seed)
+        run: |
+          python -m scripts.seed
+          python -m scripts.seed
+
       - name: Pytest
         run: pytest -v
 
