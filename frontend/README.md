@@ -21,8 +21,9 @@ npm install
 npm run dev
 ```
 
-O painel abre em `http://localhost:5173`. Entre com o usuário criado pelo seed
-da API (`admin@petmeet.org.br` / `admin123456`).
+O painel abre em `http://localhost:5173`. Entre com um dos usuários criados pelo
+seed da API: `admin@petmeet.org.br` / `admin123456` (admin) ou
+`veterinario@petmeet.org.br` / `vet123456` (veterinário).
 
 ### Como o front acha a API
 

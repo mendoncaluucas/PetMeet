@@ -15,7 +15,7 @@ erDiagram
         string nome
         string email
         string senha_hash
-        enum perfil "admin | voluntario"
+        enum perfil "admin | voluntario | veterinario"
         bool ativo
     }
     PETS {

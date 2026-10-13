@@ -25,6 +25,7 @@ def coluna_enum(enum_cls: type[enum.Enum], nome_tipo_postgres: str) -> EnumSQL:
 class PerfilUsuario(str, enum.Enum):
     ADMIN = "admin"
     VOLUNTARIO = "voluntario"
+    VETERINARIO = "veterinario"
 
 
 class EspeciePet(str, enum.Enum):

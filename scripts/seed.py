@@ -38,24 +38,26 @@ _PETS_DE_EXEMPLO = (
 )
 
 
+_USUARIOS_DE_EXEMPLO = (
+    ("Administrador PetMeet", "admin@petmeet.org.br", "admin123456", PerfilUsuario.ADMIN),
+    ("Veterinaria PetMeet", "veterinario@petmeet.org.br", "vet123456", PerfilUsuario.VETERINARIO),
+)
+
+
 async def popular(sessao: AsyncSession) -> None:
-    await _garantir_admin(sessao)
+    for nome, email, senha, perfil in _USUARIOS_DE_EXEMPLO:
+        await _garantir_usuario(sessao, nome, email, senha, perfil)
     await _garantir_pets_de_exemplo(sessao)
     await sessao.commit()
 
 
-async def _garantir_admin(sessao: AsyncSession) -> None:
-    if await repo_usuario.obter_por_email(sessao, "admin@petmeet.org.br") is not None:
+async def _garantir_usuario(
+    sessao: AsyncSession, nome: str, email: str, senha: str, perfil: PerfilUsuario
+) -> None:
+    if await repo_usuario.obter_por_email(sessao, email) is not None:
         return
-    sessao.add(
-        Usuario(
-            nome="Administrador PetMeet",
-            email="admin@petmeet.org.br",
-            senha_hash=gerar_hash_senha("admin123456"),
-            perfil=PerfilUsuario.ADMIN,
-        )
-    )
-    print("Usuario admin criado: admin@petmeet.org.br / admin123456")
+    sessao.add(Usuario(nome=nome, email=email, senha_hash=gerar_hash_senha(senha), perfil=perfil))
+    print(f"Usuario {perfil.value} criado: {email} / {senha}")
 
 
 async def _garantir_pets_de_exemplo(sessao: AsyncSession) -> None:

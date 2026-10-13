@@ -82,7 +82,8 @@ depois rode as migrations:
 alembic upgrade head
 ```
 
-Popule dados de exemplo (cria um usuario admin e dois pets):
+Popule dados de exemplo (cria um admin, um veterinario e dois pets). E so para
+desenvolvimento e testes: as senhas abaixo sao publicas, nao rode o seed em producao.
 
 ```bash
 python -m scripts.seed
@@ -95,8 +96,13 @@ uvicorn app.main:app --reload
 ```
 
 A documentacao interativa (Swagger) fica em `http://localhost:8000/docs`.
-Use o botao **Authorize** com o usuario criado pelo seed
-(`admin@petmeet.org.br` / `admin123456`) para testar as rotas protegidas.
+Use o botao **Authorize** com um dos usuarios criados pelo seed para testar as rotas
+protegidas:
+
+| Perfil | E-mail | Senha |
+|---|---|---|
+| Admin | `admin@petmeet.org.br` | `admin123456` |
+| Veterinario | `veterinario@petmeet.org.br` | `vet123456` |
 
 ## Instalacao via Docker Compose (recomendado)
 
@@ -173,7 +179,10 @@ nas demais rotas.
 
 Perfis de usuario: `admin` e `voluntario` — ambos sao "equipe da ONG" e podem
 operar cadastros; rotas de criacao de usuarios (`/usuarios`) sao restritas a
-`admin`.
+`admin`. O `veterinario` consulta os pets e cuida da saude deles: e o unico que da
+alta de um tratamento medico, e nao acessa adotantes, padrinhos, doacoes nem
+processos de adocao. A matriz completa esta em
+[`docs/HISTORIAS-FASE-2.md`](docs/HISTORIAS-FASE-2.md).
 
 ## Front-end
 
