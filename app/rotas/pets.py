@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 
 from app.armazenamento import obter_armazenamento
-from app.dependencias import SessaoAsync, UsuarioAtual, requer_perfil
+from app.dependencias import SessaoAsync, requer_perfil
 from app.esquemas.comuns import PaginaResposta
 from app.esquemas.pet import (
     PetAtualizar,
@@ -14,11 +14,19 @@ from app.esquemas.pet import (
     PetResposta,
 )
 from app.modelos.enums import EspeciePet, PerfilUsuario, SituacaoAdocaoPet, StatusSaudePet
+from app.modelos.usuario import Usuario
 from app.servicos import pet as servico_pet
 
 roteador = APIRouter(prefix="/pets", tags=["Pets"])
 
 _requer_equipe = Depends(requer_perfil(PerfilUsuario.ADMIN, PerfilUsuario.VOLUNTARIO))
+# Equipe e veterinario. A lista e explicita: um perfil novo nao ganha acesso sem querer.
+_EquipeOuVeterinario = Annotated[
+    Usuario,
+    Depends(
+        requer_perfil(PerfilUsuario.ADMIN, PerfilUsuario.VOLUNTARIO, PerfilUsuario.VETERINARIO)
+    ),
+]
 
 
 @roteador.post(
@@ -35,7 +43,7 @@ async def criar_pet(sessao: SessaoAsync, dados: PetCriar) -> PetResposta:
 @roteador.get("", response_model=PaginaResposta[PetResposta])
 async def listar_pets(
     sessao: SessaoAsync,
-    _usuario: UsuarioAtual,
+    _usuario: _EquipeOuVeterinario,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamanho_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
     especie: EspeciePet | None = None,
@@ -54,7 +62,9 @@ async def listar_pets(
 
 
 @roteador.get("/{pet_id}", response_model=PetResposta)
-async def obter_pet(sessao: SessaoAsync, _usuario: UsuarioAtual, pet_id: int) -> PetResposta:
+async def obter_pet(
+    sessao: SessaoAsync, _usuario: _EquipeOuVeterinario, pet_id: int
+) -> PetResposta:
     pet = await servico_pet.obter_pet_ou_falhar(sessao, pet_id)
     return PetResposta.model_validate(pet)
 
@@ -65,11 +75,15 @@ async def atualizar_pet(sessao: SessaoAsync, pet_id: int, dados: PetAtualizar) -
     return PetResposta.model_validate(pet)
 
 
-@roteador.patch("/{pet_id}/status-saude", response_model=PetResposta, dependencies=[_requer_equipe])
+@roteador.patch("/{pet_id}/status-saude", response_model=PetResposta)
 async def atualizar_status_saude(
-    sessao: SessaoAsync, pet_id: int, dados: PetAtualizarStatusSaude
+    sessao: SessaoAsync,
+    usuario: _EquipeOuVeterinario,
+    pet_id: int,
+    dados: PetAtualizarStatusSaude,
 ) -> PetResposta:
-    pet = await servico_pet.atualizar_status_saude(sessao, pet_id, dados)
+    """A equipe coloca o pet em tratamento; tirar dele (dar alta) e so do veterinario."""
+    pet = await servico_pet.atualizar_status_saude(sessao, pet_id, dados, usuario)
     return PetResposta.model_validate(pet)
 
 
