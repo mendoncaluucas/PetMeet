@@ -6,7 +6,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.esquemas.atendimento_clinico import AtendimentoAnular
-from app.esquemas.comuns import contrato_sem_nulo_em
+from app.esquemas.comuns import IdNoCorpo, contrato_sem_nulo_em
 from app.modelos.enums import EspeciePet
 from app.modelos.vacina import normalizar_nome_vacina
 
@@ -77,7 +77,7 @@ class VacinaResposta(BaseModel):
 
 class AplicacaoCriar(BaseModel):
     # O veterinario vem do login, nunca do corpo: campo extra e ignorado.
-    vacina_id: int
+    vacina_id: IdNoCorpo
     data_aplicacao: date
     proxima_dose: date | None = None
     lote: str | None = Field(None, max_length=50)

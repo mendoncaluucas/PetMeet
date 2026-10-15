@@ -18,6 +18,7 @@ from app.esquemas.vacina import (
 )
 from app.modelos.enums import PerfilUsuario
 from app.modelos.usuario import Usuario
+from app.rotas.parametros import IdNoCaminho
 from app.servicos import vacinacao as servico_vacinacao
 
 roteador = APIRouter(tags=["Vacinacao"])
@@ -63,7 +64,7 @@ async def criar_vacina(sessao: SessaoAsync, dados: VacinaCriar) -> VacinaRespost
     dependencies=[_requer_admin_ou_veterinario],
 )
 async def atualizar_vacina(
-    sessao: SessaoAsync, vacina_id: int, dados: VacinaAtualizar
+    sessao: SessaoAsync, vacina_id: IdNoCaminho, dados: VacinaAtualizar
 ) -> VacinaResposta:
     """Vacina nao se apaga: desativar (`ativa: false`) tira das aplicacoes novas (H4.4)."""
     vacina = await servico_vacinacao.atualizar_vacina(sessao, vacina_id, dados)
@@ -78,7 +79,7 @@ async def atualizar_vacina(
     response_model=CartaoVacinacao,
     dependencies=[_requer_equipe_ou_veterinario],
 )
-async def cartao_vacinacao(sessao: SessaoAsync, pet_id: int) -> CartaoVacinacao:
+async def cartao_vacinacao(sessao: SessaoAsync, pet_id: IdNoCaminho) -> CartaoVacinacao:
     """Situacao por vacina (pela ultima aplicacao valida) e o historico completo."""
     return await servico_vacinacao.montar_cartao(sessao, pet_id, hoje=hoje_na_ong())
 
@@ -89,7 +90,7 @@ async def cartao_vacinacao(sessao: SessaoAsync, pet_id: int) -> CartaoVacinacao:
     status_code=status.HTTP_201_CREATED,
 )
 async def registrar_aplicacao(
-    sessao: SessaoAsync, veterinario: _Veterinario, pet_id: int, dados: AplicacaoCriar
+    sessao: SessaoAsync, veterinario: _Veterinario, pet_id: IdNoCaminho, dados: AplicacaoCriar
 ) -> AplicacaoResposta:
     aplicacao = await servico_vacinacao.registrar_aplicacao(
         sessao, pet_id, dados, veterinario, hoje=hoje_na_ong()
@@ -99,7 +100,10 @@ async def registrar_aplicacao(
 
 @roteador.post("/aplicacoes-vacina/{aplicacao_id}/anulacao", response_model=AplicacaoResposta)
 async def anular_aplicacao(
-    sessao: SessaoAsync, veterinario: _Veterinario, aplicacao_id: int, dados: AplicacaoAnular
+    sessao: SessaoAsync,
+    veterinario: _Veterinario,
+    aplicacao_id: IdNoCaminho,
+    dados: AplicacaoAnular,
 ) -> AplicacaoResposta:
     """A aplicacao continua no historico, marcada como anulada, e deixa de valer no status."""
     aplicacao = await servico_vacinacao.anular_aplicacao(sessao, aplicacao_id, dados, veterinario)

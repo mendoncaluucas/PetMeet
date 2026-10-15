@@ -1,13 +1,12 @@
 """Rotas de Doacao (RF12, RF13)."""
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 
 from app.dependencias import SessaoAsync, requer_perfil
 from app.esquemas.comuns import PaginaResposta
 from app.esquemas.doacao import DoacaoCriar, DoacaoResposta
 from app.modelos.enums import PerfilUsuario
+from app.rotas.parametros import IdNaConsulta, Pagina, TamanhoPagina
 from app.servicos import doacao as servico_doacao
 
 roteador = APIRouter(prefix="/doacoes", tags=["Doacoes"])
@@ -29,9 +28,9 @@ async def criar_doacao(sessao: SessaoAsync, dados: DoacaoCriar) -> DoacaoRespost
 @roteador.get("", response_model=PaginaResposta[DoacaoResposta], dependencies=[_requer_equipe])
 async def listar_doacoes(
     sessao: SessaoAsync,
-    pagina: Annotated[int, Query(ge=1)] = 1,
-    tamanho_pagina: Annotated[int, Query(ge=1, le=100)] = 20,
-    padrinho_id: int | None = None,
+    pagina: Pagina = 1,
+    tamanho_pagina: TamanhoPagina = 20,
+    padrinho_id: IdNaConsulta = None,
 ) -> PaginaResposta[DoacaoResposta]:
     itens, total = await servico_doacao.listar_doacoes(sessao, pagina, tamanho_pagina, padrinho_id)
     return PaginaResposta(

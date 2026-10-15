@@ -4,12 +4,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.esquemas.comuns import IdNoCorpo
 from app.modelos.enums import StatusProcessoAdocao
 
 
 class ProcessoAdocaoCriar(BaseModel):
-    pet_id: int
-    adotante_id: int
+    pet_id: IdNoCorpo
+    adotante_id: IdNoCorpo
 
 
 class ProcessoAdocaoAtualizarStatus(BaseModel):

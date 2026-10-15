@@ -2,11 +2,16 @@
 
 import re
 from collections.abc import Callable, Iterable
-from typing import Any, Generic, TypeVar
+from typing import Annotated, Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 T = TypeVar("T")
+
+# Maior INTEGER do Postgres. Acima disso o banco recusa a consulta e a API respondia 500
+# (DEF-15): todo id que chega do cliente e limitado aqui ou em app/rotas/parametros.py.
+MAIOR_INTEIRO_DO_BANCO = 2_147_483_647
+IdNoCorpo = Annotated[int, Field(le=MAIOR_INTEIRO_DO_BANCO)]
 
 
 class PaginaResposta(BaseModel, Generic[T]):
