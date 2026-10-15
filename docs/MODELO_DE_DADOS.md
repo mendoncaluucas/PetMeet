@@ -8,6 +8,9 @@ erDiagram
     PETS ||--o{ APADRINHAMENTOS : "e apadrinhado em"
     PETS ||--o{ ATENDIMENTOS_CLINICOS : "tem na ficha clinica"
     USUARIOS ||--o{ ATENDIMENTOS_CLINICOS : "veterinario que registrou"
+    PETS ||--o{ APLICACOES_VACINA : "tem no cartao de vacinacao"
+    VACINAS ||--o{ APLICACOES_VACINA : "aplicada em"
+    USUARIOS ||--o{ APLICACOES_VACINA : "veterinario que aplicou"
     ADOTANTES ||--o{ PROCESSOS_ADOCAO : "solicita"
     PADRINHOS ||--o{ APADRINHAMENTOS : "apadrinha"
     PADRINHOS ||--o{ DOACOES : "contribui com"
@@ -82,6 +85,27 @@ erDiagram
         int anulado_por_id FK
         string motivo_anulacao
     }
+    VACINAS {
+        int id PK
+        string nome "gravado sem espacos nas pontas, em NFC"
+        string nome_chave UK "NFC + casefold, calculada no app"
+        enum especie "cachorro | gato | outro; nulo = todas"
+        int intervalo_reforco_dias "sugestao da proxima dose; CHECK > 0"
+        bool ativa "inativa sai das aplicacoes novas"
+    }
+    APLICACOES_VACINA {
+        int id PK
+        int pet_id FK "RESTRICT"
+        int vacina_id FK "RESTRICT"
+        int veterinario_id FK "RESTRICT"
+        date data_aplicacao "nao pode estar no futuro (dia de Brasilia)"
+        date proxima_dose "CHECK > data_aplicacao; pode estar no passado"
+        string lote
+        string observacao
+        datetime anulado_em "nulo se valida"
+        int anulado_por_id FK
+        string motivo_anulacao
+    }
     LOGS_AUDITORIA {
         int id PK
         int usuario_id FK
@@ -107,6 +131,12 @@ erDiagram
 | `atendimentos_clinicos (pet_id, data_atendimento)` | indice | ficha clínica do pet, do mais recente para o mais antigo |
 | `atendimentos_clinicos` | CHECK anulação completa | anulado = quando, quem e motivo juntos; atendimento não é editado nem apagado (D8) |
 | `atendimentos_clinicos.pet_id` | FK `RESTRICT`, sem cascade no modelo | apagar um pet não leva o histórico clínico junto (A-09) |
+| `vacinas.nome_chave` | UNIQUE | "V10", " v10 " e "ANTIRRÁBICA"/"Antirrábica" são a mesma vacina (A-10). A chave é calculada no Python (NFC + `casefold`), não com `lower()` no banco: o `lower()` só trata acentos quando a collation do banco é como `en_US.utf8` |
+| `aplicacoes_vacina (pet_id, vacina_id, data_aplicacao) WHERE anulado_em IS NULL` | UNIQUE parcial | uma aplicação válida por vacina, pet e dia; a anulada não conta (H5.4) |
+| `aplicacoes_vacina` | CHECK próxima dose depois da aplicação; CHECK anulação completa | regras do cartão garantidas também no banco |
+| `aplicacoes_vacina.pet_id` / `.vacina_id` | FK `RESTRICT` | nem o pet nem a vacina levam o cartão junto (A-09) |
+
+O status de cada vacina (*em dia*, *vencendo*, *vencida*, *sem reforço*) não é gravado: é calculado a cada leitura pela **última aplicação válida** de cada vacina no pet (`DISTINCT ON`), com "hoje" em `America/Sao_Paulo`.
 
 ## Por que `doenca_atual` e `acompanhamento_medico_em_dia` existem
 

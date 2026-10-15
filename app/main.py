@@ -17,6 +17,7 @@ from app.rotas import (
     pets,
     processos_adocao,
     usuarios,
+    vacinacao,
 )
 
 configuracoes = obter_configuracoes()
@@ -44,6 +45,7 @@ app.include_router(auth.roteador)
 app.include_router(usuarios.roteador)
 app.include_router(pets.roteador)
 app.include_router(atendimentos.roteador)
+app.include_router(vacinacao.roteador)
 app.include_router(adotantes.roteador)
 app.include_router(padrinhos.roteador)
 app.include_router(processos_adocao.roteador)
