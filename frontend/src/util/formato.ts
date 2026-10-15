@@ -13,6 +13,7 @@ import type {
   SituacaoAdocaoPet,
   StatusProcessoAdocao,
   StatusSaudePet,
+  StatusVacina,
 } from '../api/tipos'
 
 export type Tom = 'jade' | 'alerta' | 'ambar' | 'indigo' | 'neutro'
@@ -58,6 +59,20 @@ export const TOM_SAUDE: Record<StatusSaudePet, Tom> = {
   saudavel: 'jade',
   em_tratamento_medico: 'alerta',
   em_recuperacao: 'ambar',
+}
+
+export const STATUS_VACINA: Record<StatusVacina, string> = {
+  vencida: 'Vencida',
+  vencendo: 'Vencendo',
+  em_dia: 'Em dia',
+  sem_reforco: 'Sem reforço previsto',
+}
+
+export const TOM_VACINA: Record<StatusVacina, Tom> = {
+  vencida: 'alerta',
+  vencendo: 'ambar',
+  em_dia: 'jade',
+  sem_reforco: 'neutro',
 }
 
 export const TOM_SITUACAO: Record<SituacaoAdocaoPet, Tom> = {
@@ -188,4 +203,23 @@ export function dataDeHoje(): string {
 /** Plural sem malabarismo: contagem(1, 'pet', 'pets') -> "1 pet". */
 export function contagem(quantidade: number, singular: string, plural: string): string {
   return `${quantidade} ${quantidade === 1 ? singular : plural}`
+}
+
+/**
+ * Soma dias a uma data "AAAA-MM-DD" sem passar por fuso horario: com new Date() local, a
+ * virada do horario de verao ou o UTC poderiam devolver um dia antes. Usada para sugerir
+ * a proxima dose (data da aplicacao + intervalo do catalogo).
+ */
+export function somarDias(iso: string, dias: number): string {
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  const data = new Date(Date.UTC(ano, mes - 1, dia + dias))
+  return data.toISOString().slice(0, 10)
+}
+
+/** "vence em 12 dias", "venceu há 3 dias", "vence hoje". */
+export function prazoDaDose(dias: number | null): string {
+  if (dias === null) return ''
+  if (dias === 0) return 'vence hoje'
+  if (dias > 0) return `vence em ${contagem(dias, 'dia', 'dias')}`
+  return `venceu há ${contagem(-dias, 'dia', 'dias')}`
 }

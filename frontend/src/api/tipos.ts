@@ -206,3 +206,72 @@ export interface AtendimentoCriar {
   diagnostico?: string | null
   conduta?: string | null
 }
+
+/** Catalogo e cartao de vacinacao (app/esquemas/vacina.py). */
+export type StatusVacina = 'em_dia' | 'vencendo' | 'vencida' | 'sem_reforco'
+
+export interface Vacina {
+  id: number
+  nome: string
+  /** null = qualquer especie */
+  especie: EspeciePet | null
+  intervalo_reforco_dias: number | null
+  ativa: boolean
+}
+
+export interface VacinaCriar {
+  nome: string
+  especie: EspeciePet | null
+  intervalo_reforco_dias: number | null
+}
+
+/** A especie nao muda depois de criada; null no intervalo tira a sugestao de reforco. */
+export interface VacinaAtualizar {
+  nome?: string
+  intervalo_reforco_dias?: number | null
+  ativa?: boolean
+}
+
+export interface AplicacaoVacina {
+  id: number
+  pet_id: number
+  vacina_id: number
+  vacina_nome: string
+  data_aplicacao: string
+  proxima_dose: string | null
+  lote: string | null
+  observacao: string | null
+  veterinario_id: number
+  veterinario_nome: string
+  criado_em: string
+  anulado_em: string | null
+  anulado_por_nome: string | null
+  motivo_anulacao: string | null
+}
+
+export interface AplicacaoCriar {
+  vacina_id: number
+  data_aplicacao: string
+  proxima_dose: string | null
+  lote: string | null
+  observacao: string | null
+}
+
+export interface SituacaoVacina {
+  vacina_id: number
+  vacina_nome: string
+  vacina_ativa: boolean
+  ultima_aplicacao: string
+  proxima_dose: string | null
+  status: StatusVacina
+  /** negativo = dias de atraso; null = sem reforco previsto */
+  dias_para_vencer: number | null
+}
+
+export interface CartaoVacinacao {
+  pet_id: number
+  /** o dia (Brasilia) que a API usou no calculo */
+  hoje: string
+  situacao: SituacaoVacina[]
+  historico: AplicacaoVacina[]
+}

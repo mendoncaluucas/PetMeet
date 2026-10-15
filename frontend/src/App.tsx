@@ -14,6 +14,7 @@ import { Adotantes } from './paginas/Adotantes'
 import { Padrinhos } from './paginas/Padrinhos'
 import { Doacoes } from './paginas/Doacoes'
 import { Equipe } from './paginas/Equipe'
+import { Vacinas } from './paginas/Vacinas'
 import { NaoEncontrada } from './paginas/NaoEncontrada'
 
 function ExigeSessao({ children }: { children: ReactNode }) {
@@ -77,6 +78,8 @@ export function App() {
         <Route index element={<Inicio />} />
         <Route path="pets" element={<Pets />} />
         <Route path="pets/:id" element={<PetDetalhe />} />
+        {/* Todos os perfis: a equipe consulta, admin e veterinario mantem (D9). */}
+        <Route path="vacinas" element={<Vacinas />} />
         <Route
           path="pets/novo"
           element={

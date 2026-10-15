@@ -5,6 +5,7 @@ import { ErroApi } from '../api/cliente'
 import { adotantes as apiAdotantes, pets, processos as apiProcessos } from '../api/recursos'
 import type { EspeciePet, Pet, StatusSaudePet } from '../api/tipos'
 import { useAuth } from '../auth/ContextoAuth'
+import { CartaoVacinacao } from '../componentes/CartaoVacinacao'
 import { FichaClinica } from '../componentes/FichaClinica'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
 import { Aviso, Carregando, Moldura, Selo } from '../componentes/Interface'
@@ -194,6 +195,12 @@ export function PetDetalhe() {
           {/* key: outro pet, ficha nova. Formulario aberto ou pagina de um pet nao passam
               para o seguinte (seria o atendimento registrado no pet errado). */}
           <FichaClinica key={pet.id} petId={pet.id} podeRegistrar={ehVeterinario} />
+          <CartaoVacinacao
+            key={pet.id}
+            petId={pet.id}
+            especie={pet.especie}
+            podeRegistrar={ehVeterinario}
+          />
 
           {/* --- Situacao de adocao: so leitura, muda pelo processo de adocao --- */}
           <section className="ficha">
