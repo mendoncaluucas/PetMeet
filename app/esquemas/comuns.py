@@ -1,6 +1,7 @@
 """Schemas reutilizaveis entre os modulos (paginacao - RNF08; CPF - RN08)."""
 
 import re
+from collections.abc import Callable, Iterable
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -21,7 +22,22 @@ def _contrato_sem_nulo(esquema: dict[str, Any]) -> None:
     Os campos sao declarados `X | None = None` so para o "nao enviado" funcionar; o
     contrato nao pode dizer que null e aceito, porque nao e.
     """
-    for propriedade in esquema.get("properties", {}).values():
+    _tirar_nulo(esquema.get("properties", {}).values())
+
+
+def contrato_sem_nulo_em(*campos: str) -> Callable[[dict[str, Any]], None]:
+    """O mesmo, so para alguns campos: para PATCH que mistura campo NOT NULL com campo que
+    pode ser limpo de proposito (enviado como null)."""
+
+    def _ajustar(esquema: dict[str, Any]) -> None:
+        propriedades = esquema.get("properties", {})
+        _tirar_nulo(propriedades[campo] for campo in campos if campo in propriedades)
+
+    return _ajustar
+
+
+def _tirar_nulo(propriedades: Iterable[dict[str, Any]]) -> None:
+    for propriedade in propriedades:
         opcoes = [opcao for opcao in propriedade.pop("anyOf", []) if opcao.get("type") != "null"]
         if len(opcoes) == 1:
             propriedade.update(opcoes[0])
