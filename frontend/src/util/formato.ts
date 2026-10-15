@@ -223,3 +223,13 @@ export function prazoDaDose(dias: number | null): string {
   if (dias > 0) return `vence em ${contagem(dias, 'dia', 'dias')}`
   return `venceu há ${contagem(-dias, 'dia', 'dias')}`
 }
+
+/** Maior INTEGER do Postgres: ids acima disso nao existem (a API responde 422, DEF-15). */
+export const MAIOR_ID = 2_147_483_647
+
+/** Id vindo da URL: so inteiro positivo dentro do limite. "abc", "-1" ou "1e3" viram null. */
+export function idDaUrl(texto: string | undefined): number | null {
+  if (!texto || !/^\d+$/.test(texto)) return null
+  const id = Number(texto)
+  return id >= 1 && id <= MAIOR_ID ? id : null
+}

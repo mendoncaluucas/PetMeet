@@ -5,13 +5,22 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.esquemas.comuns import IdNoCorpo
 from app.modelos.enums import FrequenciaContribuicao
 
 
 class DoacaoCriar(BaseModel):
-    padrinho_id: int | None = None
+    padrinho_id: IdNoCorpo | None = None
     doador_nome: str | None = Field(None, max_length=150)
-    valor: Decimal = Field(..., gt=0, description="Valor da doacao, deve ser maior que zero (RN05)")
+    # Numeric(10, 2) no banco: ate 99.999.999,99. Acima disso o banco recusava com 500, e
+    # com mais de 2 casas arredondava calado (R$ 10,123 virava 10,12) -- DEF-15.
+    valor: Decimal = Field(
+        ...,
+        gt=0,
+        max_digits=10,
+        decimal_places=2,
+        description="Valor da doacao, maior que zero (RN05), com ate 2 casas decimais",
+    )
     data: date
     tipo: FrequenciaContribuicao
 

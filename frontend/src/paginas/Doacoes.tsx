@@ -18,6 +18,8 @@ import { useRequisicao } from '../util/useRequisicao'
 
 const TAMANHO_PAGINA = 20
 
+const VALOR_MAXIMO = 99999999.99
+
 export function Doacoes() {
   const [pagina, setPagina] = useState(1)
   const [padrinhoId, setPadrinhoId] = useState('')
@@ -190,6 +192,11 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
       setErrosCampo({ valor: 'O valor precisa ser maior que zero.' })
       return
     }
+    // O banco guarda ate 99.999.999,99 (Numeric 10,2); a API recusa acima disso (DEF-15).
+    if (numero > VALOR_MAXIMO) {
+      setErrosCampo({ valor: 'O valor máximo é R$ 99.999.999,99.' })
+      return
+    }
 
     setSalvando(true)
     try {
@@ -260,6 +267,7 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
             type="number"
             step="0.01"
             min="0.01"
+            max={VALOR_MAXIMO}
             required
             inputMode="decimal"
             value={valor}

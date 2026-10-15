@@ -51,7 +51,7 @@ O N2 é, portanto, **terminar de resolver o problema que o enunciado propôs**, 
 | DEF-12 | CPF validado só pela quantidade de dígitos | `088.888.888-88` aceito; o primeiro dígito verificador deveria ser 0 | **Corrigido** no [PR #7](https://github.com/mendoncaluucas/PetMeet/pull/7) |
 | DEF-13 | Não há exclusão nem inativação de adotante (a API não tem nenhuma rota `DELETE`) | Lista de rotas do OpenAPI | **Corrigido** no [PR #9](https://github.com/mendoncaluucas/PetMeet/pull/9) |
 | DEF-14 | `PATCH` com `null` em adotante, pet ou padrinho ia direto para uma coluna `NOT NULL` e respondia 500. O contrato OpenAPI ainda anunciava esses campos como "aceita nulo". | `PATCH /pets/1 {"nome": null}` → 500; achado ao implementar o 1.6, em 29/09 | **Corrigido** nos [PRs #9](https://github.com/mendoncaluucas/PetMeet/pull/9) (adotante) e [#11](https://github.com/mendoncaluucas/PetMeet/pull/11) (pet e padrinho) |
-| DEF-15 | Id acima do limite do inteiro do Postgres (2.147.483.647), no caminho ou no corpo, derruba a consulta e responde 500 em todas as rotas | `GET /pets/99999999999` → 500, igual na `v1.0`; achado na verificação do PR do cartão de vacinação, em 15/10 | A corrigir num PR próprio: um tipo de id único para todas as rotas |
+| DEF-15 | Id acima do limite do inteiro do Postgres (2.147.483.647), no caminho ou no corpo, derruba a consulta e responde 500 em todas as rotas | `GET /pets/99999999999` → 500, igual na `v1.0`; achado na verificação do PR do cartão de vacinação, em 15/10 | **Corrigido** na branch `fix/numeros-fora-do-intervalo`: limites declarados na borda (`app/rotas/parametros.py`, `IdNoCorpo`) e teste de contrato que falha se uma rota nova receber número sem limite. Na mesma verificação: doação com 3 casas era gravada arredondada (R$ 10,123 → 10,12) e acima de 99.999.999,99 dava 500 — agora 422 |
 
 ### 2.3 Armadilhas técnicas que as mudanças planejadas vão encontrar
 
@@ -270,7 +270,7 @@ Os itens 0.5 (lock de dependências, `tzdata`, constante do Starlette) e 0.6 (`.
 |---|---|---|
 | 2.1 Revisão das histórias pelo Nicholas | pendente | as histórias foram escritas pelo backend para destravar a fase |
 | 2.7 *(Extra)* Aviso diário por e-mail | não iniciado | é extra; fica para a margem da fase 4 |
-| DEF-15 Id acima do inteiro do Postgres → 500 | registrado | defeito da `v1.0`, achado nesta fase; correção num PR próprio |
+| DEF-15 Id acima do inteiro do Postgres → 500 | corrigido logo depois da fase | defeito da `v1.0`, achado nesta fase; corrigido em PR próprio, antes da fase 3 |
 | 1.7, 1.11, 1.12 | sem mudança | dependem de Frontend, Requisitos e QA |
 
 **Decisão tomada pelo padrão do documento:** uma vacina desativada no catálogo continua nos alertas (H4.4). Se a ONG desativar uma vacina que algum pet tem vencida, o pet fica vencido até a vacina ser reativada para registrar a dose nova. Rever se isso incomodar no uso.

@@ -19,6 +19,7 @@ import {
   TOM_SITUACAO,
   formatarData,
   formatarDataHora,
+  idDaUrl,
   idadeEmTexto,
   tempoNoAbrigo,
 } from '../util/formato'
@@ -31,11 +32,15 @@ type Secao = 'nenhuma' | 'dados' | 'saude'
 
 export function PetDetalhe() {
   const { id } = useParams<{ id: string }>()
-  const petId = Number(id)
+  // Id invalido na barra de endereco nem chega a API: a resposta dela (422) e tecnica.
+  const petId = idDaUrl(id)
   // O veterinario consulta a ficha e da alta; dados, foto e processos sao da equipe.
   const { ehVeterinario, ehEquipe } = useAuth()
 
-  const { dados, carregando, erro } = useRequisicao(() => pets.obter(petId), [petId])
+  const { dados, carregando, erro } = useRequisicao(
+    () => (petId === null ? Promise.reject(new Error('Pet não encontrado.')) : pets.obter(petId)),
+    [petId],
+  )
   const [pet, setPet] = useState<Pet | null>(null)
   const [secao, setSecao] = useState<Secao>('nenhuma')
   const [mensagem, setMensagem] = useState<{ tom: 'sucesso' | 'erro'; texto: string } | null>(null)
