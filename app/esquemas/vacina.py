@@ -145,3 +145,27 @@ class CartaoVacinacao(BaseModel):
     hoje: date
     situacao: list[SituacaoVacina]
     historico: list[AplicacaoResposta]
+
+
+# ------------------------------------------------------------------ alertas
+
+
+class AlertaVacina(BaseModel):
+    pet_id: int
+    pet_nome: str
+    vacina_id: int
+    vacina_nome: str
+    proxima_dose: date
+    # So vencida ou vencendo: em dia e sem reforco nao viram alerta (H6.2).
+    status: StatusVacina
+    # Negativo = dias de atraso.
+    dias_para_vencer: int
+
+
+class AlertasVacina(BaseModel):
+    # O dia (Brasilia) usado no calculo.
+    hoje: date
+    total_vencidas: int
+    total_vencendo: int
+    # As mais atrasadas primeiro; limitada pelo parametro `limite` da rota.
+    itens: list[AlertaVacina]
