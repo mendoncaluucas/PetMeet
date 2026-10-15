@@ -239,3 +239,39 @@ Os itens 0.5 (lock de dependências, `tzdata`, constante do Starlette) e 0.6 (`.
 - As histórias da ficha clínica e da vacinação venciam em 07/10 (item 2.1) e não chegaram: definir quem escreve os critérios de aceite antes de começar.
 - O resumo do Painel exige perfil admin ou voluntário, porque traz nomes de adotantes. O perfil veterinário receberia **403 na página inicial** — decidir entre um resumo sem nomes ou outra página inicial para ele.
 - Quem atualizar a `develop` reinstala as dependências pelo lock: `pip install -r requirements-dev.lock` e `pip install --no-deps -e .`.
+
+### Fim da fase 2 — 15/10/2026
+
+**Entrou na `develop`** — 4 PRs, contando este; testes de 80 para **186**; migrations `0005` a `0007`. A evolução 1 do enunciado, o cartão de vacinação digital com alertas de vencimento, está completa.
+
+| Item | PR | Histórias |
+|---|---|---|
+| 2.1 Histórias e critérios de aceite | [#14](https://github.com/mendoncaluucas/PetMeet/pull/14), em [`HISTORIAS-FASE-2.md`](HISTORIAS-FASE-2.md) | H1–H6 |
+| 2.2 Perfil veterinário · 2.3 Alta só pelo veterinário, com auditoria | [#14](https://github.com/mendoncaluucas/PetMeet/pull/14) | H1, H2 |
+| 2.4 Ficha clínica | [#15](https://github.com/mendoncaluucas/PetMeet/pull/15) | H3 |
+| 2.5 Catálogo e cartão de vacinação | [#16](https://github.com/mendoncaluucas/PetMeet/pull/16) | H4, H5 |
+| 2.6 Alertas de vencimento nas páginas iniciais | o PR que traz esta atualização | H6 |
+
+**Achados na verificação antes do merge** — defeitos que as próprias mudanças criariam e que foram corrigidos antes de entrar:
+
+| PR | Achado | Como apareceu |
+|---|---|---|
+| #14 | Um voluntário tirava o pet do tratamento se alguém registrasse o tratamento no mesmo instante | teste com duas conexões |
+| #14 | Doença só com espaços passava como diagnóstico | requisição real |
+| #14 | A migration do perfil podia faltar sem nenhum teste avisar: os testes montam o banco pelos modelos | migration retirada de propósito; o seed no CI pegou |
+| #15 | Desfazer a migration apagava o histórico clínico sem avisar | banco temporário |
+| #16 | O autogenerate recriaria o tipo `especie_pet` e a migration quebraria | leitura da migration gerada |
+| #16 | A unicidade do nome da vacina dependia da collation do banco; acento em NFD passava como vacina nova | banco com collation `C` criado no teste |
+| este | O cartão e a ficha clínica tinham a mesma `key` no React — entrou no #16 e é corrigido aqui | console do navegador |
+
+**O que escorregou e por quê**
+
+| Item | Situação | Motivo |
+|---|---|---|
+| 2.1 Revisão das histórias pelo Nicholas | pendente | as histórias foram escritas pelo backend para destravar a fase |
+| 2.7 *(Extra)* Aviso diário por e-mail | não iniciado | é extra; fica para a margem da fase 4 |
+| DEF-15 Id acima do inteiro do Postgres → 500 | registrado | defeito da `v1.0`, achado nesta fase; correção num PR próprio |
+| 1.7, 1.11, 1.12 | sem mudança | dependem de Frontend, Requisitos e QA |
+
+**Decisão tomada pelo padrão do documento:** uma vacina desativada no catálogo continua nos alertas (H4.4). Se a ONG desativar uma vacina que algum pet tem vencida, o pet fica vencido até a vacina ser reativada para registrar a dose nova. Rever se isso incomodar no uso.
+
