@@ -192,15 +192,20 @@ export function PetDetalhe() {
             </div>
           </section>
 
-          {/* key: outro pet, ficha nova. Formulario aberto ou pagina de um pet nao passam
-              para o seguinte (seria o atendimento registrado no pet errado). */}
-          <FichaClinica key={pet.id} petId={pet.id} podeRegistrar={ehVeterinario} />
+          {/* O cartao vem antes da ficha clinica: o alerta da pagina inicial rola ate ele, e
+              tudo o que fica acima ja esta carregado quando ele monta. A ficha, que carrega
+              em paralelo, nao empurra o cartao para baixo do ponto rolado. */}
           <CartaoVacinacao
-            key={pet.id}
+            key={`cartao-${pet.id}`}
             petId={pet.id}
             especie={pet.especie}
             podeRegistrar={ehVeterinario}
           />
+
+          {/* key: outro pet, ficha nova. Formulario aberto ou pagina de um pet nao passam
+              para o seguinte (seria o atendimento registrado no pet errado). Prefixo distinto
+              do cartao: irmaos com a mesma key, o React pode duplicar ou omitir um deles. */}
+          <FichaClinica key={`ficha-${pet.id}`} petId={pet.id} podeRegistrar={ehVeterinario} />
 
           {/* --- Situacao de adocao: so leitura, muda pelo processo de adocao --- */}
           <section className="ficha">

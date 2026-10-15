@@ -3,8 +3,9 @@
  * (D7). O status de cada vacina vem pronto da API, calculado pela ultima aplicacao valida.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ErroApi } from '../api/cliente'
 import { vacinacao, vacinas } from '../api/recursos'
 import type { AplicacaoVacina, EspeciePet, Vacina } from '../api/tipos'
@@ -35,6 +36,16 @@ export function CartaoVacinacao({ petId, especie, podeRegistrar }: Props) {
     [petId],
   )
 
+  // O alerta da pagina inicial abre /pets/:id#cartao-vacinacao: rola ate aqui quando o
+  // cartao terminar de carregar (antes disso a altura da pagina ainda vai mudar).
+  const { hash } = useLocation()
+  const carregado = Boolean(dados)
+  useEffect(() => {
+    if (hash === '#cartao-vacinacao' && carregado) {
+      document.getElementById('cartao-vacinacao')?.scrollIntoView({ block: 'start' })
+    }
+  }, [hash, carregado])
+
   function concluir(texto: string) {
     setRegistrando(false)
     setMensagem({ tom: 'sucesso', texto })
@@ -49,7 +60,7 @@ export function CartaoVacinacao({ petId, especie, podeRegistrar }: Props) {
   }
 
   return (
-    <section className="ficha">
+    <section className="ficha" id="cartao-vacinacao">
       <div className="ficha-corpo pilha-3">
         <div className="secao-titulo">
           <h2>Cartão de vacinação</h2>

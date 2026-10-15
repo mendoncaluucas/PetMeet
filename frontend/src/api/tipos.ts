@@ -275,3 +275,23 @@ export interface CartaoVacinacao {
   situacao: SituacaoVacina[]
   historico: AplicacaoVacina[]
 }
+
+/** Alertas de vencimento (H6): so vencidas e vencendo, das mais atrasadas primeiro. */
+export interface AlertaVacina {
+  pet_id: number
+  pet_nome: string
+  vacina_id: number
+  vacina_nome: string
+  proxima_dose: string
+  status: StatusVacina
+  /** negativo = dias de atraso */
+  dias_para_vencer: number
+}
+
+export interface AlertasVacina {
+  hoje: string
+  /** contam todos os alertas, nao so os da lista */
+  total_vencidas: number
+  total_vencendo: number
+  itens: AlertaVacina[]
+}

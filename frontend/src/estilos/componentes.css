@@ -770,6 +770,14 @@
   border-left-color: var(--ambar-tarja);
 }
 
+.item-atencao[data-vacina='vencida'] {
+  border-left-color: var(--alerta);
+}
+
+.item-atencao[data-vacina='vencendo'] {
+  border-left-color: var(--ambar-tarja);
+}
+
 .item-atencao[data-saude='saudavel'] {
   border-left-color: var(--jade);
 }

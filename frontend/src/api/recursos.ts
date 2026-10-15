@@ -4,6 +4,7 @@ import { consulta, requisitar } from './cliente'
 import type {
   Adotante,
   AdotanteCriar,
+  AlertasVacina,
   AplicacaoCriar,
   AplicacaoVacina,
   Atendimento,
@@ -198,6 +199,9 @@ export const vacinacao = {
       metodo: 'POST',
       corpo: dados,
     }),
+
+  /** Vencidas e vencendo em ate 30 dias; pet adotado fica de fora (D6). */
+  alertas: (limite = 20) => requisitar<AlertasVacina>(`/vacinacao/alertas${consulta({ limite })}`),
 
   /** Nao apaga: fica no historico, marcada como anulada, e deixa de valer no status. */
   anular: (id: number, motivo: string) =>
