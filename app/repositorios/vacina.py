@@ -2,11 +2,13 @@
 
 from datetime import date
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import aliased, joinedload
 
+from app.modelos.enums import SituacaoAdocaoPet
+from app.modelos.pet import Pet
 from app.modelos.vacina import AplicacaoVacina, Vacina, chave_do_nome_vacina
 
 # ------------------------------------------------------------------ catalogo
@@ -127,3 +129,49 @@ async def ultimas_validas_do_pet(sessao: AsyncSession, pet_id: int) -> list[Apli
         .options(joinedload(AplicacaoVacina.vacina))
     )
     return list((await sessao.execute(consulta)).scalars().all())
+
+
+# ------------------------------------------------------------------ alertas
+
+
+async def alertas(
+    sessao: AsyncSession, hoje: date, ate: date, limite: int
+) -> tuple[list[tuple[AplicacaoVacina, str, str]], int, int]:
+    """Alertas de vencimento (H6): a ultima dose valida de cada vacina, em pet nao adotado,
+    com proxima dose ate `ate`. Das mais atrasadas para as mais distantes.
+
+    Devolve (itens, total de vencidas, total vencendo). Vencida: proxima dose antes de
+    `hoje`; vencendo: de `hoje` ate `ate`. Os totais sao contados no banco, sobre todos os
+    alertas, e nao sobre a lista limitada.
+
+    - D6: pet adotado fica de fora -- a responsabilidade passa ao adotante.
+    - H4.4: vacina desativada continua -- a dose dela segue vencendo no pet.
+    """
+    ultima = aliased(AplicacaoVacina, consulta_ultimas_validas().subquery())
+    filtro = (
+        Pet.situacao_adocao != SituacaoAdocaoPet.ADOTADO,
+        ultima.proxima_dose.is_not(None),
+        ultima.proxima_dose <= ate,
+    )
+
+    totais = (
+        select(
+            func.count().filter(ultima.proxima_dose < hoje),
+            func.count().filter(ultima.proxima_dose >= hoje),
+        )
+        .select_from(ultima)
+        .join(Pet, Pet.id == ultima.pet_id)
+        .where(*filtro)
+    )
+    vencidas, vencendo = (await sessao.execute(totais)).one()
+
+    consulta = (
+        select(ultima, Pet.nome, Vacina.nome)
+        .join(Pet, Pet.id == ultima.pet_id)
+        .join(Vacina, Vacina.id == ultima.vacina_id)
+        .where(*filtro)
+        .order_by(ultima.proxima_dose, Pet.nome, Vacina.nome_chave)
+        .limit(limite)
+    )
+    linhas = (await sessao.execute(consulta)).all()
+    return [(aplicacao, pet, vacina) for aplicacao, pet, vacina in linhas], vencidas, vencendo

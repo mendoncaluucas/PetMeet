@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.core.tempo import hoje_na_ong
 from app.dependencias import SessaoAsync, requer_perfil
 from app.esquemas.vacina import (
+    AlertasVacina,
     AplicacaoAnular,
     AplicacaoCriar,
     AplicacaoResposta,
@@ -103,3 +104,22 @@ async def anular_aplicacao(
     """A aplicacao continua no historico, marcada como anulada, e deixa de valer no status."""
     aplicacao = await servico_vacinacao.anular_aplicacao(sessao, aplicacao_id, dados, veterinario)
     return AplicacaoResposta.model_validate(aplicacao)
+
+
+# ------------------------------------------------------------------ alertas
+
+
+@roteador.get(
+    "/vacinacao/alertas",
+    response_model=AlertasVacina,
+    dependencies=[_requer_equipe_ou_veterinario],
+)
+async def alertas_de_vacina(
+    sessao: SessaoAsync, limite: Annotated[int, Query(ge=1, le=200)] = 20
+) -> AlertasVacina:
+    """Vacinas vencidas e vencendo em ate 30 dias, das mais atrasadas primeiro (H6).
+
+    Pet adotado fica de fora (D6). Os totais contam todos os alertas; `limite` corta so a
+    lista. Mesma base do cartao: a ultima aplicacao valida de cada vacina.
+    """
+    return await servico_vacinacao.montar_alertas(sessao, hoje=hoje_na_ong(), limite=limite)

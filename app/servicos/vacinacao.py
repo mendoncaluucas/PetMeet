@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RecursoNaoEncontradoError, RegraNegocioError
 from app.esquemas.vacina import (
+    AlertasVacina,
+    AlertaVacina,
     AplicacaoAnular,
     AplicacaoCriar,
     AplicacaoResposta,
@@ -188,3 +190,31 @@ async def _com_nomes(sessao: AsyncSession, aplicacao_id: int) -> AplicacaoVacina
     aplicacao = await repo_vacina.obter_aplicacao(sessao, aplicacao_id)
     assert aplicacao is not None  # acabou de ser gravada nesta sessao
     return aplicacao
+
+
+# ------------------------------------------------------------------ alertas
+
+
+async def montar_alertas(sessao: AsyncSession, hoje: date, limite: int) -> AlertasVacina:
+    """Vacinas vencidas e vencendo em ate 30 dias, das mais atrasadas primeiro (H6).
+
+    O corte e o mesmo do cartao: o banco seleciona ate hoje + JANELA_VENCENDO_DIAS e o
+    status de cada item vem de status_da_dose, a mesma funcao do cartao.
+    """
+    ate = hoje + timedelta(days=JANELA_VENCENDO_DIAS)
+    linhas, vencidas, vencendo = await repo_vacina.alertas(sessao, hoje, ate, limite)
+    itens = []
+    for aplicacao, pet_nome, vacina_nome in linhas:
+        assert aplicacao.proxima_dose is not None  # o filtro da consulta garante
+        itens.append(
+            AlertaVacina(
+                pet_id=aplicacao.pet_id,
+                pet_nome=pet_nome,
+                vacina_id=aplicacao.vacina_id,
+                vacina_nome=vacina_nome,
+                proxima_dose=aplicacao.proxima_dose,
+                status=status_da_dose(aplicacao.proxima_dose, hoje),
+                dias_para_vencer=(aplicacao.proxima_dose - hoje).days,
+            )
+        )
+    return AlertasVacina(hoje=hoje, total_vencidas=vencidas, total_vencendo=vencendo, itens=itens)

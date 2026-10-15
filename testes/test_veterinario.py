@@ -37,6 +37,7 @@ _ROTAS_DO_VETERINARIO = {
     ("GET", "/pets/{pet_id}/cartao-vacinacao"),
     ("POST", "/pets/{pet_id}/aplicacoes-vacina"),
     ("POST", "/aplicacoes-vacina/{aplicacao_id}/anulacao"),
+    ("GET", "/vacinacao/alertas"),
 }
 
 

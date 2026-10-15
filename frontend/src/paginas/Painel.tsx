@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { painel } from '../api/recursos'
+import { AlertasVacina } from '../componentes/AlertasVacina'
 import { Aviso, Carregando, EstadoVazio, Selo } from '../componentes/Interface'
 import {
   STATUS_PROCESSO,
@@ -137,6 +138,8 @@ export function Painel() {
             </div>
           )}
         </section>
+
+        <AlertasVacina limite={5} />
       </div>
 
       {dados.esperando_ha_mais_tempo.length > 0 ? (
