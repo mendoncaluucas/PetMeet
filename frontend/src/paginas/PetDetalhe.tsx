@@ -7,6 +7,7 @@ import type { EspeciePet, Pet, StatusSaudePet } from '../api/tipos'
 import { useAuth } from '../auth/ContextoAuth'
 import { CartaoVacinacao } from '../componentes/CartaoVacinacao'
 import { FichaClinica } from '../componentes/FichaClinica'
+import { PadrinhosDoPet } from '../componentes/PadrinhosDoPet'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
 import { Aviso, Carregando, Moldura, Selo } from '../componentes/Interface'
 import {
@@ -211,6 +212,10 @@ export function PetDetalhe() {
               para o seguinte (seria o atendimento registrado no pet errado). Prefixo distinto
               do cartao: irmaos com a mesma key, o React pode duplicar ou omitir um deles. */}
           <FichaClinica key={`ficha-${pet.id}`} petId={pet.id} podeRegistrar={ehVeterinario} />
+
+          {/* A equipe ve quem apadrinha; o veterinario, so quantos (D14). Enquanto o perfil
+              nao chegou, a contagem: ela serve a qualquer perfil. */}
+          <PadrinhosDoPet key={`padrinhos-${pet.id}`} petId={pet.id} mostrarNomes={ehEquipe} />
 
           {/* --- Situacao de adocao: so leitura, muda pelo processo de adocao --- */}
           <section className="ficha">

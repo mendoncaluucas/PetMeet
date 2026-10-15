@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { ErroApi } from '../api/cliente'
 import { doacoes as apiDoacoes, padrinhos as api } from '../api/recursos'
 import type { Padrinho } from '../api/tipos'
+import { ApadrinhamentosDoPadrinho } from '../componentes/ApadrinhamentosDoPadrinho'
 import { Campo } from '../componentes/Campos'
 import {
   Aviso,
@@ -29,6 +30,7 @@ type Painel =
   | { tipo: 'cadastro' }
   | { tipo: 'edicao'; padrinho: Padrinho }
   | { tipo: 'doacoes'; padrinho: Padrinho }
+  | { tipo: 'apadrinhamentos'; padrinho: Padrinho }
 
 export function Padrinhos() {
   const [pagina, setPagina] = useState(1)
@@ -50,7 +52,7 @@ export function Padrinhos() {
     <>
       <CabecalhoPagina
         titulo="Padrinhos"
-        descricao="Quem sustenta o abrigo com contribuições pontuais ou recorrentes."
+        descricao="Quem sustenta o abrigo. Um padrinho combina um valor por mês para cada pet que apadrinha."
         acao={
           <button type="button" className="botao" onClick={() => setPainel({ tipo: 'cadastro' })}>
             Cadastrar padrinho
@@ -108,6 +110,14 @@ export function Padrinhos() {
                             type="button"
                             className="botao"
                             data-tipo="texto"
+                            onClick={() => setPainel({ tipo: 'apadrinhamentos', padrinho: pessoa })}
+                          >
+                            Apadrinhamentos
+                          </button>
+                          <button
+                            type="button"
+                            className="botao"
+                            data-tipo="texto"
                             onClick={() => setPainel({ tipo: 'doacoes', padrinho: pessoa })}
                           >
                             Doações
@@ -155,6 +165,10 @@ export function Padrinhos() {
 
       {painel?.tipo === 'doacoes' ? (
         <DoacoesDoPadrinho padrinho={painel.padrinho} aoFechar={() => setPainel(null)} />
+      ) : null}
+
+      {painel?.tipo === 'apadrinhamentos' ? (
+        <ApadrinhamentosDoPadrinho padrinho={painel.padrinho} aoFechar={() => setPainel(null)} />
       ) : null}
     </>
   )

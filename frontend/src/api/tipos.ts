@@ -116,6 +116,8 @@ export interface ProcessoAdocaoAtualizarStatus {
 export interface Doacao {
   id: number
   padrinho_id: number | null
+  /** destino (H8); null = doacao geral da ONG */
+  pet_id: number | null
   doador_nome: string | null
   valor: string
   data: string
@@ -125,6 +127,7 @@ export interface Doacao {
 
 export interface DoacaoCriar {
   padrinho_id?: number | null
+  pet_id?: number | null
   doador_nome?: string | null
   valor: number
   data: string
@@ -294,4 +297,31 @@ export interface AlertasVacina {
   total_vencidas: number
   total_vencendo: number
   itens: AlertaVacina[]
+}
+
+/** Apadrinhamento mensal (H7, app/esquemas/apadrinhamento.py). Ativo enquanto sem data_fim. */
+export interface Apadrinhamento {
+  id: number
+  padrinho_id: number
+  padrinho_nome: string
+  pet_id: number
+  pet_nome: string
+  valor_mensal: string
+  data_inicio: string
+  data_fim: string | null
+  ativo: boolean
+  criado_em: string
+}
+
+export interface ApadrinhamentoCriar {
+  padrinho_id: number
+  pet_id: number
+  valor_mensal: number
+  data_inicio: string
+}
+
+/** O que qualquer perfil ve na ficha do pet: so a contagem. */
+export interface PadrinhosDoPet {
+  pet_id: number
+  ativos: number
 }
