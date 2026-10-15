@@ -10,7 +10,6 @@ from app.db.base import Base
 from app.modelos.enums import EspeciePet, SituacaoAdocaoPet, StatusSaudePet, coluna_enum
 
 if TYPE_CHECKING:
-    from app.modelos.apadrinhamento import Apadrinhamento
     from app.modelos.processo_adocao import ProcessoAdocao
 
 
@@ -51,8 +50,5 @@ class Pet(Base):
     )
 
     processos_adocao: Mapped[list["ProcessoAdocao"]] = relationship(  # noqa: F821
-        back_populates="pet", cascade="all, delete-orphan"
-    )
-    apadrinhamentos: Mapped[list["Apadrinhamento"]] = relationship(  # noqa: F821
         back_populates="pet", cascade="all, delete-orphan"
     )

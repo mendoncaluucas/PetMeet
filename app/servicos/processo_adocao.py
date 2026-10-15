@@ -4,15 +4,19 @@ Este e o modulo mais sensivel do sistema: aqui vive a regra critica do
 enunciado (RN01/RF16) e a garantia de consistencia sob concorrencia (RNF18).
 """
 
+from datetime import date
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RecursoNaoEncontradoError, RegraNegocioError
+from app.core.tempo import hoje_na_ong
 from app.esquemas.processo_adocao import ProcessoAdocaoAtualizarStatus, ProcessoAdocaoCriar
 from app.modelos.enums import SituacaoAdocaoPet, StatusProcessoAdocao, StatusSaudePet
 from app.modelos.pet import Pet
 from app.modelos.processo_adocao import ProcessoAdocao
 from app.repositorios import adotante as repo_adotante
+from app.repositorios import apadrinhamento as repo_apadrinhamento
 from app.repositorios import pet as repo_pet
 from app.repositorios import processo_adocao as repo_processo
 from app.servicos.unicidade import gravar_sem_duplicar
@@ -91,12 +95,21 @@ async def listar_processos(
 
 
 async def atualizar_status_processo(
-    sessao: AsyncSession, processo_id: int, dados: ProcessoAdocaoAtualizarStatus
+    sessao: AsyncSession,
+    processo_id: int,
+    dados: ProcessoAdocaoAtualizarStatus,
+    hoje: date | None = None,
 ) -> ProcessoAdocao:
+    """`hoje` (dia em Brasilia) data o encerramento dos apadrinhamentos na finalizacao."""
     processo, pet = await _travar_para_transicao(sessao, processo_id)
 
     if dados.status == StatusProcessoAdocao.FINALIZADO:
         _finalizar(processo, pet)
+        # D12: pet adotado deixa o abrigo; os apadrinhamentos dele terminam aqui, na mesma
+        # transacao -- se a finalizacao falhar no commit, nenhum e encerrado.
+        await repo_apadrinhamento.encerrar_ativos_do_pet(
+            sessao, pet.id, hoje if hoje is not None else hoje_na_ong()
+        )
     else:
         processo.status = dados.status
         # Cancelar so devolve o pet se ele estava em processo: um pet ja adotado por

@@ -7,6 +7,7 @@ from app.esquemas.doacao import DoacaoCriar
 from app.modelos.doacao import Doacao
 from app.repositorios import doacao as repo_doacao
 from app.repositorios import padrinho as repo_padrinho
+from app.repositorios import pet as repo_pet
 
 
 async def criar_doacao(sessao: AsyncSession, dados: DoacaoCriar) -> Doacao:
@@ -14,6 +15,8 @@ async def criar_doacao(sessao: AsyncSession, dados: DoacaoCriar) -> Doacao:
         padrinho = await repo_padrinho.obter_por_id(sessao, dados.padrinho_id)
         if padrinho is None:
             raise RecursoNaoEncontradoError(f"Padrinho {dados.padrinho_id} nao encontrado.")
+    if dados.pet_id is not None and await repo_pet.obter_por_id(sessao, dados.pet_id) is None:
+        raise RecursoNaoEncontradoError(f"Pet {dados.pet_id} nao encontrado.")
 
     # RN05 (valor > 0) ja e garantida pelo schema (Field(gt=0)) e pelo CHECK constraint no banco.
     doacao = Doacao(**dados.model_dump())
