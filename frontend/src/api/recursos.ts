@@ -4,8 +4,11 @@ import { consulta, requisitar } from './cliente'
 import type {
   Adotante,
   AdotanteCriar,
+  AplicacaoCriar,
+  AplicacaoVacina,
   Atendimento,
   AtendimentoCriar,
+  CartaoVacinacao,
   Doacao,
   DoacaoCriar,
   EspeciePet,
@@ -25,6 +28,9 @@ import type {
   TokenResposta,
   Usuario,
   UsuarioCriar,
+  Vacina,
+  VacinaAtualizar,
+  VacinaCriar,
 } from './tipos'
 
 export const autenticacao = {
@@ -163,6 +169,39 @@ export const atendimentos = {
   /** Nao apaga: o atendimento fica na ficha, marcado como anulado (D8). */
   anular: (id: number, motivo: string) =>
     requisitar<Atendimento>(`/atendimentos/${id}/anulacao`, {
+      metodo: 'POST',
+      corpo: { motivo },
+    }),
+}
+
+export const vacinas = {
+  /** Catalogo em ordem alfabetica. As inativas so vem quando pedidas. */
+  listar: (incluirInativas = false) =>
+    requisitar<Vacina[]>(
+      `/vacinas${consulta({ incluir_inativas: incluirInativas ? 'true' : undefined })}`,
+    ),
+
+  /** Admin e veterinario (D9). Nome repetido, sem diferenciar maiusculas: 409. */
+  criar: (dados: VacinaCriar) => requisitar<Vacina>('/vacinas', { metodo: 'POST', corpo: dados }),
+
+  atualizar: (id: number, dados: VacinaAtualizar) =>
+    requisitar<Vacina>(`/vacinas/${id}`, { metodo: 'PATCH', corpo: dados }),
+}
+
+export const vacinacao = {
+  /** Situacao por vacina (pela ultima aplicacao valida) e historico completo. */
+  cartao: (petId: number) => requisitar<CartaoVacinacao>(`/pets/${petId}/cartao-vacinacao`),
+
+  /** So o veterinario aplica (D7). Mesma vacina no mesmo dia: 409. */
+  registrar: (petId: number, dados: AplicacaoCriar) =>
+    requisitar<AplicacaoVacina>(`/pets/${petId}/aplicacoes-vacina`, {
+      metodo: 'POST',
+      corpo: dados,
+    }),
+
+  /** Nao apaga: fica no historico, marcada como anulada, e deixa de valer no status. */
+  anular: (id: number, motivo: string) =>
+    requisitar<AplicacaoVacina>(`/aplicacoes-vacina/${id}/anulacao`, {
       metodo: 'POST',
       corpo: { motivo },
     }),

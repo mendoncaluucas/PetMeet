@@ -7,6 +7,7 @@ import { PERFIS } from '../util/formato'
 const TRABALHO_DIARIO = [
   { para: '/', rotulo: 'Painel', fim: true },
   { para: '/pets', rotulo: 'Pets', fim: false },
+  { para: '/vacinas', rotulo: 'Vacinas', fim: false },
   { para: '/adocoes', rotulo: 'Adoções', fim: false },
   { para: '/adotantes', rotulo: 'Adotantes', fim: false },
   { para: '/padrinhos', rotulo: 'Padrinhos', fim: false },
@@ -17,6 +18,7 @@ const TRABALHO_DIARIO = [
 const TRABALHO_CLINICO = [
   { para: '/', rotulo: 'Início', fim: true },
   { para: '/pets', rotulo: 'Pets', fim: false },
+  { para: '/vacinas', rotulo: 'Vacinas', fim: false },
 ]
 
 export function Layout() {

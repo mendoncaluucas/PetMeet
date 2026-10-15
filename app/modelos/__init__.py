@@ -9,9 +9,11 @@ from app.modelos.padrinho import Padrinho
 from app.modelos.pet import Pet
 from app.modelos.processo_adocao import ProcessoAdocao
 from app.modelos.usuario import Usuario
+from app.modelos.vacina import AplicacaoVacina, Vacina
 
 __all__ = [
     "Adotante",
+    "AplicacaoVacina",
     "AtendimentoClinico",
     "Apadrinhamento",
     "Doacao",
@@ -20,4 +22,5 @@ __all__ = [
     "Pet",
     "ProcessoAdocao",
     "Usuario",
+    "Vacina",
 ]

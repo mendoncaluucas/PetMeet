@@ -1,0 +1,129 @@
+"""Acesso a dados do catalogo de vacinas e do cartao de vacinacao (fase 2, H4 e H5)."""
+
+from datetime import date
+
+from sqlalchemy import Select, select
+from sqlalchemy.dialects.postgresql import distinct_on
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+
+from app.modelos.vacina import AplicacaoVacina, Vacina, chave_do_nome_vacina
+
+# ------------------------------------------------------------------ catalogo
+
+
+async def listar_vacinas(sessao: AsyncSession, incluir_inativas: bool) -> list[Vacina]:
+    # Pela chave (casefold no Python): a ordem nao muda com a collation do banco.
+    consulta = select(Vacina).order_by(Vacina.nome_chave)
+    if not incluir_inativas:
+        consulta = consulta.where(Vacina.ativa.is_(True))
+    return list((await sessao.execute(consulta)).scalars().all())
+
+
+async def obter_vacina_com_lock(
+    sessao: AsyncSession, vacina_id: int, *, compartilhado: bool = False
+) -> Vacina | None:
+    """FOR UPDATE para editar; FOR SHARE ao registrar uma aplicacao.
+
+    Assim, desativar a vacina espera a aplicacao em andamento terminar, e a aplicacao que
+    chega depois ja ve a vacina inativa -- o mesmo par usado com o adotante na adocao.
+    """
+    consulta = (
+        select(Vacina)
+        .where(Vacina.id == vacina_id)
+        .with_for_update(read=compartilhado)
+        .execution_options(populate_existing=True)
+    )
+    return (await sessao.execute(consulta)).scalar_one_or_none()
+
+
+async def nome_em_uso(sessao: AsyncSession, nome: str, *, exceto_id: int | None = None) -> bool:
+    """Mesma chave da unicidade no banco (chave_do_nome_vacina)."""
+    consulta = select(Vacina.id).where(Vacina.nome_chave == chave_do_nome_vacina(nome))
+    if exceto_id is not None:
+        consulta = consulta.where(Vacina.id != exceto_id)
+    return (await sessao.execute(consulta.limit(1))).first() is not None
+
+
+# ------------------------------------------------------------------- cartao
+
+_COM_NOMES = (
+    joinedload(AplicacaoVacina.vacina),
+    joinedload(AplicacaoVacina.veterinario),
+    joinedload(AplicacaoVacina.anulado_por),
+)
+
+
+async def obter_aplicacao(sessao: AsyncSession, aplicacao_id: int) -> AplicacaoVacina | None:
+    consulta = (
+        select(AplicacaoVacina)
+        .where(AplicacaoVacina.id == aplicacao_id)
+        .options(*_COM_NOMES)
+        .execution_options(populate_existing=True)
+    )
+    return (await sessao.execute(consulta)).scalar_one_or_none()
+
+
+async def obter_aplicacao_com_lock(
+    sessao: AsyncSession, aplicacao_id: int
+) -> AplicacaoVacina | None:
+    """Sem os nomes: o Postgres nao trava o lado opcional de um LEFT JOIN."""
+    consulta = (
+        select(AplicacaoVacina)
+        .where(AplicacaoVacina.id == aplicacao_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return (await sessao.execute(consulta)).scalar_one_or_none()
+
+
+async def existe_aplicacao_valida(
+    sessao: AsyncSession, pet_id: int, vacina_id: int, data_aplicacao: date
+) -> bool:
+    consulta = select(AplicacaoVacina.id).where(
+        AplicacaoVacina.pet_id == pet_id,
+        AplicacaoVacina.vacina_id == vacina_id,
+        AplicacaoVacina.data_aplicacao == data_aplicacao,
+        AplicacaoVacina.anulado_em.is_(None),
+    )
+    return (await sessao.execute(consulta.limit(1))).first() is not None
+
+
+async def historico_do_pet(sessao: AsyncSession, pet_id: int) -> list[AplicacaoVacina]:
+    """Todas as aplicacoes, anuladas inclusive: mais recente primeiro."""
+    consulta = (
+        select(AplicacaoVacina)
+        .where(AplicacaoVacina.pet_id == pet_id)
+        .options(*_COM_NOMES)
+        .order_by(AplicacaoVacina.data_aplicacao.desc(), AplicacaoVacina.id.desc())
+    )
+    return list((await sessao.execute(consulta)).scalars().all())
+
+
+def consulta_ultimas_validas() -> Select[AplicacaoVacina]:
+    """A ultima aplicacao valida de cada vacina em cada pet (H5.7).
+
+    E ela que decide o status: uma dose antiga com reforco vencido nao conta se ja houve
+    dose mais nova (A-10), e a anulada nao conta nunca (H5.9). No empate de data, vale a
+    registrada por ultimo. Os alertas da H6 partem desta mesma consulta.
+    """
+    return (
+        select(AplicacaoVacina)
+        .where(AplicacaoVacina.anulado_em.is_(None))
+        .ext(distinct_on(AplicacaoVacina.pet_id, AplicacaoVacina.vacina_id))
+        .order_by(
+            AplicacaoVacina.pet_id,
+            AplicacaoVacina.vacina_id,
+            AplicacaoVacina.data_aplicacao.desc(),
+            AplicacaoVacina.id.desc(),
+        )
+    )
+
+
+async def ultimas_validas_do_pet(sessao: AsyncSession, pet_id: int) -> list[AplicacaoVacina]:
+    consulta = (
+        consulta_ultimas_validas()
+        .where(AplicacaoVacina.pet_id == pet_id)
+        .options(joinedload(AplicacaoVacina.vacina))
+    )
+    return list((await sessao.execute(consulta)).scalars().all())

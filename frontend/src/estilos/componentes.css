@@ -1000,3 +1000,10 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* --- Cartao de vacinacao (fase 2, H5) ------------------------------------ */
+
+.subtitulo-cartao {
+  margin: var(--e-2) 0 0;
+  font-size: var(--t-md);
+}

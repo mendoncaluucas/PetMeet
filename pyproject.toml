@@ -9,7 +9,7 @@ dependencies = [
     "starlette>=0.48.0",
     "uvicorn[standard]>=0.32.0",
     # [asyncio] traz o greenlet, que o SQLAlchemy 2.1 deixou de instalar sozinho
-    "sqlalchemy[asyncio]>=2.0.35",
+    "sqlalchemy[asyncio]>=2.1",  # distinct_on (cartao de vacinacao) so existe a partir da 2.1
     "asyncpg>=0.30.0",
     "alembic>=1.13.3",
     "pydantic>=2.9.0",

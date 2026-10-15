@@ -51,6 +51,7 @@ O N2 é, portanto, **terminar de resolver o problema que o enunciado propôs**, 
 | DEF-12 | CPF validado só pela quantidade de dígitos | `088.888.888-88` aceito; o primeiro dígito verificador deveria ser 0 | **Corrigido** no [PR #7](https://github.com/mendoncaluucas/PetMeet/pull/7) |
 | DEF-13 | Não há exclusão nem inativação de adotante (a API não tem nenhuma rota `DELETE`) | Lista de rotas do OpenAPI | **Corrigido** no [PR #9](https://github.com/mendoncaluucas/PetMeet/pull/9) |
 | DEF-14 | `PATCH` com `null` em adotante, pet ou padrinho ia direto para uma coluna `NOT NULL` e respondia 500. O contrato OpenAPI ainda anunciava esses campos como "aceita nulo". | `PATCH /pets/1 {"nome": null}` → 500; achado ao implementar o 1.6, em 29/09 | **Corrigido** nos [PRs #9](https://github.com/mendoncaluucas/PetMeet/pull/9) (adotante) e [#11](https://github.com/mendoncaluucas/PetMeet/pull/11) (pet e padrinho) |
+| DEF-15 | Id acima do limite do inteiro do Postgres (2.147.483.647), no caminho ou no corpo, derruba a consulta e responde 500 em todas as rotas | `GET /pets/99999999999` → 500, igual na `v1.0`; achado na verificação do PR do cartão de vacinação, em 15/10 | A corrigir num PR próprio: um tipo de id único para todas as rotas |
 
 ### 2.3 Armadilhas técnicas que as mudanças planejadas vão encontrar
 
