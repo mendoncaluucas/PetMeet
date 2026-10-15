@@ -9,6 +9,7 @@ from app.core.excecoes import registrar_tratamento_erros
 from app.core.logging import configurar_logging
 from app.rotas import (
     adotantes,
+    apadrinhamentos,
     atendimentos,
     auth,
     doacoes,
@@ -48,6 +49,7 @@ app.include_router(atendimentos.roteador)
 app.include_router(vacinacao.roteador)
 app.include_router(adotantes.roteador)
 app.include_router(padrinhos.roteador)
+app.include_router(apadrinhamentos.roteador)
 app.include_router(processos_adocao.roteador)
 app.include_router(doacoes.roteador)
 app.include_router(painel.roteador)

@@ -38,6 +38,7 @@ _ROTAS_DO_VETERINARIO = {
     ("POST", "/pets/{pet_id}/aplicacoes-vacina"),
     ("POST", "/aplicacoes-vacina/{aplicacao_id}/anulacao"),
     ("GET", "/vacinacao/alertas"),
+    ("GET", "/pets/{pet_id}/padrinhos"),  # so a contagem, sem nomes (H7.6)
 }
 
 

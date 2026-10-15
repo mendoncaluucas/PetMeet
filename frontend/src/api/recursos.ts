@@ -4,6 +4,8 @@ import { consulta, requisitar } from './cliente'
 import type {
   Adotante,
   AdotanteCriar,
+  Apadrinhamento,
+  ApadrinhamentoCriar,
   AlertasVacina,
   AplicacaoCriar,
   AplicacaoVacina,
@@ -13,6 +15,7 @@ import type {
   Doacao,
   DoacaoCriar,
   EspeciePet,
+  PadrinhosDoPet,
   PaginaResposta,
   Padrinho,
   PadrinhoCriar,
@@ -58,6 +61,9 @@ export interface FiltrosPets {
 export const pets = {
   listar: (filtros: FiltrosPets = {}) =>
     requisitar<PaginaResposta<Pet>>(`/pets${consulta({ ...filtros })}`),
+
+  /** Quantos padrinhos ativos o pet tem; serve a qualquer perfil (sem nomes). */
+  padrinhos: (id: number) => requisitar<PadrinhosDoPet>(`/pets/${id}/padrinhos`),
 
   obter: (id: number) => requisitar<Pet>(`/pets/${id}`),
 
@@ -208,5 +214,35 @@ export const vacinacao = {
     requisitar<AplicacaoVacina>(`/aplicacoes-vacina/${id}/anulacao`, {
       metodo: 'POST',
       corpo: { motivo },
+    }),
+}
+
+export const apadrinhamentos = {
+  /** Ativos primeiro. So a equipe ve (D14). */
+  listar: (
+    filtros: {
+      padrinho_id?: number
+      pet_id?: number
+      incluir_encerrados?: boolean
+      pagina?: number
+      tamanho_pagina?: number
+    } = {},
+  ) =>
+    requisitar<PaginaResposta<Apadrinhamento>>(
+      `/apadrinhamentos${consulta({
+        ...filtros,
+        incluir_encerrados: filtros.incluir_encerrados ? 'true' : undefined,
+      })}`,
+    ),
+
+  /** Um ativo por padrinho e pet (409); pet adotado nao recebe (422). */
+  criar: (dados: ApadrinhamentoCriar) =>
+    requisitar<Apadrinhamento>('/apadrinhamentos', { metodo: 'POST', corpo: dados }),
+
+  /** O valor nao se edita: para mudar, encerra-se e abre-se outro. */
+  encerrar: (id: number, dataFim: string) =>
+    requisitar<Apadrinhamento>(`/apadrinhamentos/${id}/encerramento`, {
+      metodo: 'POST',
+      corpo: { data_fim: dataFim },
     }),
 }

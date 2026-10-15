@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ErroApi } from '../api/cliente'
-import { doacoes as api, padrinhos as apiPadrinhos } from '../api/recursos'
+import {
+  apadrinhamentos,
+  doacoes as api,
+  padrinhos as apiPadrinhos,
+  pets as apiPets,
+} from '../api/recursos'
 import type { FrequenciaContribuicao, Padrinho } from '../api/tipos'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
 import {
@@ -177,6 +182,25 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
   const [valor, setValor] = useState('')
   const [data, setData] = useState(dataDeHoje())
   const [tipo, setTipo] = useState<FrequenciaContribuicao>('pontual')
+  // Destino opcional (H8): vazio e doacao geral da ONG.
+  const [petId, setPetId] = useState('')
+  const [petEscolhido, setPetEscolhido] = useState(false)
+  const listaDePets = useRequisicao(() => apiPets.listar({ tamanho_pagina: 100 }), [])
+  // Troca rapida de padrinho: so a resposta do padrinho escolhido por ultimo vale.
+  const padrinhoDaSugestao = useRef('')
+
+  async function sugerirPet(novoPadrinhoId: string) {
+    padrinhoDaSugestao.current = novoPadrinhoId
+    if (!novoPadrinhoId || petEscolhido) return
+    try {
+      const ativos = await apadrinhamentos.listar({ padrinho_id: Number(novoPadrinhoId) })
+      if (padrinhoDaSugestao.current !== novoPadrinhoId) return
+      // Com um pet so, e quase certo que a doacao e para ele; com mais, a pessoa escolhe.
+      setPetId(ativos.total === 1 ? String(ativos.itens[0].pet_id) : '')
+    } catch {
+      // Sugestao e conveniencia: se falhar, o campo fica para a pessoa escolher.
+    }
+  }
 
   const [erro, setErro] = useState<string | null>(null)
   const [errosCampo, setErrosCampo] = useState<Record<string, string>>({})
@@ -202,6 +226,7 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
     try {
       await api.criar({
         padrinho_id: origem === 'padrinho' ? Number(padrinhoId) : null,
+        pet_id: petId ? Number(petId) : null,
         doador_nome: origem === 'avulso' ? doadorNome.trim() : null,
         valor: numero,
         data,
@@ -241,7 +266,10 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
             required
             value={padrinhoId}
             erro={errosCampo.padrinho_id}
-            onChange={(evento) => setPadrinhoId(evento.target.value)}
+            onChange={(evento) => {
+              setPadrinhoId(evento.target.value)
+              void sugerirPet(evento.target.value)
+            }}
           >
             <option value="">Escolha um padrinho</option>
             {padrinhos.map((pessoa) => (
@@ -260,6 +288,24 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
             onChange={(evento) => setDoadorNome(evento.target.value)}
           />
         )}
+
+        <CampoSelecao
+          rotulo="Para qual pet"
+          value={petId}
+          erro={errosCampo.pet_id}
+          dica="Opcional. Sem pet, a doação conta para a ONG como um todo."
+          onChange={(evento) => {
+            setPetEscolhido(true)
+            setPetId(evento.target.value)
+          }}
+        >
+          <option value="">Doação geral da ONG</option>
+          {(listaDePets.dados?.itens ?? []).map((pet) => (
+            <option key={pet.id} value={pet.id}>
+              {pet.nome}
+            </option>
+          ))}
+        </CampoSelecao>
 
         <div className="formulario-duplo">
           <Campo

@@ -24,6 +24,11 @@ class Doacao(Base):
         ForeignKey("padrinhos.id", ondelete="SET NULL"), nullable=True, index=True
     )
     doador_nome: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # Destino opcional (H8): sem pet, e doacao geral da ONG. RESTRICT: apagar o pet nao
+    # leva o registro financeiro (A-09).
+    pet_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pets.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
 
     valor: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     data: Mapped[date] = mapped_column(Date, nullable=False, index=True)

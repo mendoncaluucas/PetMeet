@@ -51,11 +51,11 @@ erDiagram
     }
     APADRINHAMENTOS {
         int id PK
-        int padrinho_id FK
-        int pet_id FK
-        enum frequencia "pontual | recorrente"
-        bool ativo
+        int padrinho_id FK "RESTRICT"
+        int pet_id FK "RESTRICT"
+        decimal valor_mensal "CHECK > 0"
         date data_inicio
+        date data_fim "nulo enquanto ativo; CHECK >= data_inicio"
     }
     PROCESSOS_ADOCAO {
         int id PK
@@ -68,6 +68,7 @@ erDiagram
     DOACOES {
         int id PK
         int padrinho_id FK "nulo se doador avulso"
+        int pet_id FK "destino opcional; nulo = doacao geral"
         string doador_nome "nulo se padrinho cadastrado"
         decimal valor "CHECK > 0"
         date data
@@ -124,7 +125,8 @@ erDiagram
 | `usuarios.email` | UNIQUE + indice | login por email precisa ser rapido e sem duplicatas |
 | `adotantes.cpf` / `padrinhos.cpf` | UNIQUE + indice | evita cadastro duplicado da mesma pessoa |
 | `pets.situacao_adocao` / `pets.status_saude` | indice | filtros de listagem mais usados (RF05) |
-| `apadrinhamentos (padrinho_id, pet_id)` | UNIQUE | mesmo padrinho nao apadrinha o mesmo pet duas vezes |
+| `apadrinhamentos (padrinho_id, pet_id) WHERE data_fim IS NULL` | UNIQUE parcial | um apadrinhamento **ativo** por padrinho e pet; encerrado, pode apadrinhar de novo (A-08). A versão recebida bloqueava para sempre |
+| `apadrinhamentos.padrinho_id` / `.pet_id` | FK `RESTRICT`, sem cascade no modelo | a versão recebida apagava em cascata o que foi combinado (A-09) |
 | `processos_adocao (pet_id) WHERE status='finalizado'` | UNIQUE parcial | **RN02/RF17**: um pet, no máximo, um processo finalizado |
 | `doacoes.valor` | CHECK `valor > 0` | **RN05**, reforçada tambem no schema Pydantic |
 | `doacoes.data` | indice | consultas por período (RF13) |

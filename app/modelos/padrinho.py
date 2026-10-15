@@ -9,7 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.modelos.apadrinhamento import Apadrinhamento
     from app.modelos.doacao import Doacao
 
 
@@ -23,7 +22,4 @@ class Padrinho(Base):
     telefone: Mapped[str] = mapped_column(String(20), nullable=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    apadrinhamentos: Mapped[list["Apadrinhamento"]] = relationship(  # noqa: F821
-        back_populates="padrinho", cascade="all, delete-orphan"
-    )
     doacoes: Mapped[list["Doacao"]] = relationship(back_populates="padrinho")  # noqa: F821

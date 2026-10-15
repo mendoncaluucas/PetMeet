@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Callable, Iterable
+from decimal import Decimal
 from typing import Annotated, Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -12,6 +13,9 @@ T = TypeVar("T")
 # (DEF-15): todo id que chega do cliente e limitado aqui ou em app/rotas/parametros.py.
 MAIOR_INTEIRO_DO_BANCO = 2_147_483_647
 IdNoCorpo = Annotated[int, Field(le=MAIOR_INTEIRO_DO_BANCO)]
+# Dinheiro que entra pela API: Numeric(10, 2) no banco, ate 99.999.999,99. Mais de 2 casas
+# seria gravado arredondado sem aviso (DEF-15).
+ValorPositivo = Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=2)]
 
 
 class PaginaResposta(BaseModel, Generic[T]):
