@@ -326,6 +326,28 @@ export interface ApadrinhamentoCriar {
   data_inicio: string
 }
 
+/** Esperado x recebido (H10). O mes corrente sem pagamento completo e "em_andamento". */
+export type SituacaoDoMes = 'em_dia' | 'parcial' | 'sem_doacao' | 'em_andamento' | 'sem_compromisso'
+
+export interface MesDoPadrinho {
+  /** "2026-10" */
+  mes: string
+  esperado: string
+  recebido: string
+  /** recebido - esperado: negativo e o que falta */
+  diferenca: string
+  situacao: SituacaoDoMes
+}
+
+export interface EsperadoRecebido {
+  padrinho_id: number
+  padrinho_nome: string
+  /** meses fechados parciais ou sem doacao */
+  meses_pendentes: number
+  /** do mais recente para o mais antigo */
+  meses: MesDoPadrinho[]
+}
+
 /** O que qualquer perfil ve na ficha do pet: so a contagem. */
 export interface PadrinhosDoPet {
   pet_id: number

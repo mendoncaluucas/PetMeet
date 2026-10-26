@@ -11,6 +11,7 @@ const TRABALHO_DIARIO = [
   { para: '/adocoes', rotulo: 'Adoções', fim: false },
   { para: '/adotantes', rotulo: 'Adotantes', fim: false },
   { para: '/padrinhos', rotulo: 'Padrinhos', fim: false },
+  { para: '/contribuicoes', rotulo: 'Contribuições', fim: false },
   { para: '/doacoes', rotulo: 'Doações', fim: false },
   { para: '/gastos', rotulo: 'Gastos', fim: false },
 ]
