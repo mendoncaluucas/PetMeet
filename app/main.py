@@ -18,6 +18,7 @@ from app.rotas import (
     painel,
     pets,
     processos_adocao,
+    transparencia,
     usuarios,
     vacinacao,
 )
@@ -55,6 +56,7 @@ app.include_router(processos_adocao.roteador)
 app.include_router(doacoes.roteador)
 app.include_router(gastos.roteador)
 app.include_router(painel.roteador)
+app.include_router(transparencia.roteador)
 
 
 @app.get("/saude", tags=["Infra"])

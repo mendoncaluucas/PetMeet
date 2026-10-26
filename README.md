@@ -184,6 +184,11 @@ alta de um tratamento medico, e nao acessa adotantes, padrinhos, doacoes nem
 processos de adocao. A matriz completa esta em
 [`docs/HISTORIAS-FASE-2.md`](docs/HISTORIAS-FASE-2.md).
 
+Sem login ficam so tres rotas: `POST /auth/login`, `GET /saude` e
+`GET /transparencia`, o portal publico de prestacao de contas (painel em
+`/transparencia`), que traz apenas totais, sem dado de pessoa. O teste
+`testes/test_transparencia.py` falha se outra rota nascer sem `requer_perfil`.
+
 ## Front-end
 
 O painel web da equipe fica em [`frontend/`](frontend/) — React + TypeScript +
