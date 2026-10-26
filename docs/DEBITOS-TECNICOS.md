@@ -7,6 +7,23 @@ impacto. Serve como referência para quem for priorizar o backlog de uma
 próxima fase (RF/RNF pendentes) e para registrar pontos de risco que não
 aparecem no README.
 
+## Situação na v2.0 (N2, 26/10/2026)
+
+A lista abaixo é a da equipe original, na `v1.0`. O que o N2 fez com cada item:
+
+| # | Débito | Situação na v2.0 |
+|---|---|---|
+| 1 | RF22 — Auditoria | **Parcial.** Grava as mudanças de saúde do pet e o registro e o estorno de doações e gastos (`app/servicos/auditoria.py`). Faltam processos de adoção, usuários e uma rota de consulta |
+| 2 | Observabilidade, cache e backup | Sem mudança |
+| 3 | Ausência de CI | **Resolvido.** `.github/workflows/ci-cd.yml`: lint, tipos, testes, `alembic check`, seed e build do painel, obrigatórios na `main` e na `develop` |
+| 4 | RF10/RF11 — Apadrinhamento | **Resolvido** no PR [#19](https://github.com/mendoncaluucas/PetMeet/pull/19): apadrinhamento mensal, com esperado × recebido no [#22](https://github.com/mendoncaluucas/PetMeet/pull/22) |
+| 5 | Fotos só em disco local | Sem mudança |
+| 6 | RF08 — Histórico consolidado | Sem mudança |
+| 7 | RF13 — Filtros de doações | Sem mudança: a listagem filtra só por padrinho |
+| 8 | CORS manual | Sem mudança |
+
+Débitos novos, achados ou criados no N2, ficam no [Plano de Ação](PLANO-DE-ACAO-N2.md#7-acompanhamento) e no [handoff da v2.0](HANDOFF-N2.md#onde-o-projeto-morde).
+
 ## Resumo
 
 [#resumo](#resumo)
