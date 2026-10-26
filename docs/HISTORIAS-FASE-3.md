@@ -128,3 +128,5 @@ Nenhuma história entra em desenvolvimento antes de este documento ser aprovado 
 | 6 | Gastos e estornos (de gasto e de doação) | H9 |
 | 7 | Esperado × recebido | H10 |
 | 8 | Portal público | H11 |
+
+Em 26/10 o PR 8 passou à frente do 7: o portal é a entrega exigida da evolução 2, e o prazo é 29/10.

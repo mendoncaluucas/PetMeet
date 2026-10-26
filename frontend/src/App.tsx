@@ -15,6 +15,7 @@ import { Padrinhos } from './paginas/Padrinhos'
 import { Doacoes } from './paginas/Doacoes'
 import { Equipe } from './paginas/Equipe'
 import { Gastos } from './paginas/Gastos'
+import { Transparencia } from './paginas/Transparencia'
 import { Vacinas } from './paginas/Vacinas'
 import { NaoEncontrada } from './paginas/NaoEncontrada'
 
@@ -68,6 +69,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/entrar" element={autenticado ? <Navigate to="/" replace /> : <Login />} />
+      {/* Publica, com ou sem sessao (H11, D4). */}
+      <Route path="/transparencia" element={<Transparencia />} />
 
       <Route
         element={

@@ -26,6 +26,7 @@ import type {
   PetAtualizar,
   PetAtualizarStatusSaude,
   PetCriar,
+  PortalTransparencia,
   ProcessoAdocao,
   ProcessoAdocaoAtualizarStatus,
   ProcessoAdocaoCriar,
@@ -270,4 +271,9 @@ export const gastos = {
   /** So o admin (D14). Gasto nao se edita nem se apaga: estorna-se. */
   estornar: (id: number, motivo: string) =>
     requisitar<Gasto>(`/gastos/${id}/estorno`, { metodo: 'POST', corpo: { motivo } }),
+}
+
+export const transparencia = {
+  /** Publica (H11): vai sem token, e um token vencido no navegador nao derruba a sessao. */
+  portal: () => requisitar<PortalTransparencia>('/transparencia', { semAutenticacao: true }),
 }

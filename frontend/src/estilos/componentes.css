@@ -1028,3 +1028,111 @@
 .tabela tr[data-estorno='sim'] td {
   color: var(--texto-fraco);
 }
+
+/* --- Portal de prestacao de contas (H11) ------------------------------- */
+
+/* Pagina publica, fora da moldura do painel: sem trilho, com a marca no topo. */
+.portal {
+  min-height: 100vh;
+  background: var(--ficha);
+}
+
+.portal-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-4);
+  padding: var(--e-4) var(--e-5);
+  border-bottom: 1px solid var(--linha);
+  background: var(--branco);
+}
+
+.portal-conteudo {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--e-6) var(--e-5) var(--e-8);
+}
+
+.portal-secao {
+  margin-top: var(--e-6);
+}
+
+.portal-topo .login-marca {
+  text-decoration: none;
+}
+
+.portal-escolha {
+  font: inherit;
+  font-size: var(--t-sm);
+  padding: var(--e-1) var(--e-2);
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  background: var(--branco);
+  color: var(--texto);
+}
+
+.portal-nota {
+  margin-top: var(--e-6);
+  font-size: var(--t-sm);
+}
+
+.tabela td[data-negativo='sim'] {
+  color: var(--alerta);
+}
+
+.barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--e-3);
+}
+
+.barra {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--e-4);
+  font-size: var(--t-base);
+}
+
+.barra-rotulo {
+  color: var(--pinho);
+  font-weight: 600;
+}
+
+.barra-trilho {
+  height: 12px;
+  border-radius: var(--raio);
+  background: var(--ficha-fundo);
+  overflow: hidden;
+}
+
+.barra-valor {
+  display: block;
+  height: 100%;
+  background: var(--jade);
+}
+
+.barra-numero {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 7rem;
+}
+
+@media (max-width: 640px) {
+  .portal-topo,
+  .portal-conteudo {
+    padding-left: var(--e-4);
+    padding-right: var(--e-4);
+  }
+
+  .barra {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .barra-trilho {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
