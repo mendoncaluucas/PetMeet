@@ -44,4 +44,9 @@ class DoacaoResposta(BaseModel):
     valor: Decimal
     data: date
     tipo: FrequenciaContribuicao
+    registrado_por_nome: str | None
+    estorno_de_id: int | None
+    motivo_estorno: str | None
+    # Preenchido na doacao que ja foi estornada: a data do estorno.
+    estornado_em: date | None
     criado_em: datetime

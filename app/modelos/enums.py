@@ -56,3 +56,16 @@ class StatusProcessoAdocao(str, enum.Enum):
 class FrequenciaContribuicao(str, enum.Enum):
     PONTUAL = "pontual"
     RECORRENTE = "recorrente"
+
+
+class CategoriaGasto(str, enum.Enum):
+    """Categoria do gasto (fase 3, H9). E o que o portal publico mostra -- nunca a
+    descricao, que pode trazer nome de pessoa (D15)."""
+
+    ALIMENTACAO = "alimentacao"
+    VETERINARIO_MEDICAMENTOS = "veterinario_medicamentos"
+    VACINAS = "vacinas"
+    HIGIENE_LIMPEZA = "higiene_limpeza"
+    ESTRUTURA_MANUTENCAO = "estrutura_manutencao"
+    TRANSPORTE = "transporte"
+    OUTROS = "outros"

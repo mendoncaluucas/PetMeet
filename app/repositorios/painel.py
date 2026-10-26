@@ -37,10 +37,15 @@ async def contar_processos_ativos(sessao: AsyncSession) -> tuple[int, int]:
 
 
 async def somar_doacoes(sessao: AsyncSession, inicio: date, fim: date) -> tuple[Decimal, int]:
-    """Soma e quantidade de doacoes com data em [inicio, fim)."""
-    consulta = select(func.coalesce(func.sum(Doacao.valor), 0), func.count()).where(
-        Doacao.data >= inicio, Doacao.data < fim
-    )
+    """Soma e quantidade de doacoes com data em [inicio, fim).
+
+    A soma inclui os estornos do mes (negativos, D13): e o que de fato entrou. A quantidade
+    conta so as doacoes -- o estorno e uma correcao, nao mais uma doacao recebida.
+    """
+    consulta = select(
+        func.coalesce(func.sum(Doacao.valor), 0),
+        func.count().filter(Doacao.estorno_de_id.is_(None)),
+    ).where(Doacao.data >= inicio, Doacao.data < fim)
     total, quantidade = (await sessao.execute(consulta)).one()
     return Decimal(total), quantidade
 

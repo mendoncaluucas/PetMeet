@@ -13,6 +13,7 @@ from app.rotas import (
     atendimentos,
     auth,
     doacoes,
+    gastos,
     padrinhos,
     painel,
     pets,
@@ -52,6 +53,7 @@ app.include_router(padrinhos.roteador)
 app.include_router(apadrinhamentos.roteador)
 app.include_router(processos_adocao.roteador)
 app.include_router(doacoes.roteador)
+app.include_router(gastos.roteador)
 app.include_router(painel.roteador)
 
 
