@@ -4,6 +4,7 @@ from app.modelos.adotante import Adotante
 from app.modelos.apadrinhamento import Apadrinhamento
 from app.modelos.atendimento_clinico import AtendimentoClinico
 from app.modelos.doacao import Doacao
+from app.modelos.gasto import Gasto
 from app.modelos.log_auditoria import LogAuditoria
 from app.modelos.padrinho import Padrinho
 from app.modelos.pet import Pet
@@ -17,6 +18,7 @@ __all__ = [
     "AtendimentoClinico",
     "Apadrinhamento",
     "Doacao",
+    "Gasto",
     "LogAuditoria",
     "Padrinho",
     "Pet",

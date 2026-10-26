@@ -122,6 +122,12 @@ export interface Doacao {
   valor: string
   data: string
   tipo: FrequenciaContribuicao
+  registrado_por_nome: string | null
+  /** preenchido quando esta linha e um estorno (valor negativo) */
+  estorno_de_id: number | null
+  motivo_estorno: string | null
+  /** preenchido na doacao que ja foi estornada: a data do estorno */
+  estornado_em: string | null
   criado_em: string
 }
 
@@ -324,4 +330,38 @@ export interface ApadrinhamentoCriar {
 export interface PadrinhosDoPet {
   pet_id: number
   ativos: number
+}
+
+/** Gastos e estornos (H9, app/esquemas/gasto.py). */
+export type CategoriaGasto =
+  | 'alimentacao'
+  | 'veterinario_medicamentos'
+  | 'vacinas'
+  | 'higiene_limpeza'
+  | 'estrutura_manutencao'
+  | 'transporte'
+  | 'outros'
+
+export interface Gasto {
+  id: number
+  /** negativo quando e um estorno */
+  valor: string
+  data: string
+  categoria: CategoriaGasto
+  descricao: string
+  pet_id: number | null
+  pet_nome: string | null
+  registrado_por_nome: string
+  estorno_de_id: number | null
+  motivo_estorno: string | null
+  estornado_em: string | null
+  criado_em: string
+}
+
+export interface GastoCriar {
+  valor: number
+  data: string
+  categoria: CategoriaGasto
+  descricao: string
+  pet_id: number | null
 }

@@ -1015,3 +1015,16 @@
   margin: var(--e-2) 0 0;
   font-size: var(--t-md);
 }
+
+/* --- Estornos (fase 3, H9) ------------------------------------------------ */
+
+.lancamento-situacao {
+  display: block;
+  margin-top: var(--e-1);
+  font-size: var(--t-sm);
+}
+
+/* O estorno e uma correcao: fica visivel, mas nao compete com os lancamentos comuns. */
+.tabela tr[data-estorno='sim'] td {
+  color: var(--texto-fraco);
+}

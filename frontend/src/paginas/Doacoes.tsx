@@ -8,7 +8,9 @@ import {
   pets as apiPets,
 } from '../api/recursos'
 import type { FrequenciaContribuicao, Padrinho } from '../api/tipos'
+import { useAuth } from '../auth/ContextoAuth'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
+import { EstornarLancamento, SituacaoDoLancamento } from '../componentes/Estorno'
 import {
   Aviso,
   CabecalhoPagina,
@@ -26,10 +28,13 @@ const TAMANHO_PAGINA = 20
 const VALOR_MAXIMO = 99999999.99
 
 export function Doacoes() {
+  // Estornar mexe em dinheiro ja publicado: so o admin (D14).
+  const { ehAdmin } = useAuth()
   const [pagina, setPagina] = useState(1)
   const [padrinhoId, setPadrinhoId] = useState('')
   const [registrando, setRegistrando] = useState(false)
   const [mensagem, setMensagem] = useState<string | null>(null)
+  const [falha, setFalha] = useState<string | null>(null)
 
   const { dados, carregando, erro, recarregar } = useRequisicao(
     () =>
@@ -65,6 +70,7 @@ export function Doacoes() {
       />
 
       {mensagem ? <Aviso tom="sucesso">{mensagem}</Aviso> : null}
+      {falha ? <Aviso>{falha}</Aviso> : null}
 
       <div className="filtros">
         <CampoSelecao
@@ -112,6 +118,11 @@ export function Doacoes() {
                   <th>Quem doou</th>
                   <th>Tipo</th>
                   <th className="numero">Valor</th>
+                  {ehAdmin ? (
+                    <th>
+                      <span className="so-leitor-tela">Ações</span>
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -127,6 +138,7 @@ export function Doacoes() {
                           doador avulso
                         </span>
                       )}
+                      <SituacaoDoLancamento lancamento={doacao} />
                     </td>
                     <td>
                       <Selo tom={doacao.tipo === 'recorrente' ? 'jade' : 'neutro'}>
@@ -134,6 +146,23 @@ export function Doacoes() {
                       </Selo>
                     </td>
                     <td className="numero">{formatarMoeda(doacao.valor)}</td>
+                    {ehAdmin ? (
+                      <td>
+                        <EstornarLancamento
+                          lancamento={doacao}
+                          estornar={(motivo) => api.estornar(doacao.id, motivo)}
+                          aoEstornar={() => {
+                            setFalha(null)
+                            setMensagem('Doação estornada. O estorno entrou com a data de hoje.')
+                            recarregar()
+                          }}
+                          aoFalhar={(texto) => {
+                            setMensagem(null)
+                            setFalha(texto)
+                          }}
+                        />
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
