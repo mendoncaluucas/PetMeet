@@ -142,6 +142,29 @@ export function formatarMoeda(valor: string | number): string {
   return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const MESES = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+]
+
+/** "2026-10" vira "outubro de 2026", sem passar por new Date() (mesmo motivo de formatarData). */
+export function formatarMes(chave: string): string {
+  const partes = /^(\d{4})-(\d{2})$/.exec(chave)
+  if (!partes) return chave
+  const nome = MESES[Number(partes[2]) - 1]
+  return nome ? `${nome} de ${partes[1]}` : chave
+}
+
 export function formatarCpf(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '')
   if (digitos.length !== 11) return cpf

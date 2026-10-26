@@ -365,3 +365,38 @@ export interface GastoCriar {
   descricao: string
   pet_id: number | null
 }
+
+/** Portal publico (H11, app/esquemas/publico.py): so totais, sem dado de pessoa. */
+export interface GastoDaCategoria {
+  categoria: CategoriaGasto
+  valor: string
+}
+
+export interface MesDoPortal {
+  /** "2026-10" */
+  mes: string
+  em_andamento: boolean
+  arrecadado: string
+  gasto: string
+  saldo: string
+  saldo_acumulado: string
+  gastos_por_categoria: GastoDaCategoria[]
+}
+
+export interface PetDoPortal {
+  pet_id: number
+  nome: string
+  arrecadado: string
+  gasto: string
+}
+
+export interface PortalTransparencia {
+  mes_inicial: string
+  mes_final: string
+  arrecadado_no_periodo: string
+  gasto_no_periodo: string
+  saldo_acumulado: string
+  /** do mais recente para o mais antigo */
+  meses: MesDoPortal[]
+  pets: PetDoPortal[]
+}

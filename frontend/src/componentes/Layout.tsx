@@ -40,6 +40,11 @@ export function Layout() {
               {item.rotulo}
             </NavLink>
           ))}
+          <hr className="trilho-divisor" />
+          {/* Todos os perfis: e a mesma pagina publica que qualquer visitante ve (H11). */}
+          <NavLink to="/transparencia" className="trilho-link">
+            Prestação de contas
+          </NavLink>
           {/* A linha separa o trabalho do dia a dia da administracao da equipe, que so o
               admin faz (POST /usuarios exige perfil admin). */}
           {ehAdmin ? (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ErroApi } from '../api/cliente'
 import { useAuth } from '../auth/ContextoAuth'
 import { Campo } from '../componentes/Campos'
@@ -104,6 +104,11 @@ export function Login() {
 
           <p className="texto-fraco">
             Perdeu o acesso? Um administrador da ONG cadastra e redefine contas da equipe.
+          </p>
+
+          <p className="texto-fraco">
+            Quer saber como as doações são usadas?{' '}
+            <Link to="/transparencia">Veja a prestação de contas</Link>.
           </p>
         </div>
       </div>
