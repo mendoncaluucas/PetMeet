@@ -1,5 +1,7 @@
 # DER — Diagrama de Entidade-Relacionamento — PetMeet
 
+> **Documento da `v1.0`, mantido como registro.** Não traz as tabelas do N2 (atendimentos, vacinas, aplicações, gastos e o apadrinhamento mensal). O modelo atual está em [`MODELO_DE_DADOS.md`](MODELO_DE_DADOS.md).
+
 > Modelo de dados reconstruído a partir do domínio descrito no README, nas regras de negócio (RN01–RN08) e nos requisitos funcionais do projeto. **Este documento não substitui `app/modelos/` nem `docs/MODELO_DE_DADOS.md`** — antes de usar em decisões de handoff, valide os nomes exatos de tabelas/colunas, tipos e constraints diretamente no código-fonte e nas migrations do Alembic.
 
 ## Diagrama

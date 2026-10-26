@@ -38,7 +38,7 @@ O N2 é, portanto, **terminar de resolver o problema que o enunciado propôs**, 
 | ID | Defeito | Evidência | Situação |
 |---|---|---|---|
 | DEF-01 | Projeto não sobe em instalação nova: o SQLAlchemy 2.1 deixou de instalar o `greenlet` | CI da `main` vermelho; container em loop de reinício | **Corrigido** no [PR #1](https://github.com/mendoncaluucas/PetMeet/pull/1) |
-| DEF-02 | RN crítica relaxada: pet em tratamento finaliza adoção com a caixa marcada | `PATCH .../status` → 200; o próprio teste da equipe original afirma esse comportamento | Aguarda a decisão D1 (professor) |
+| DEF-02 | RN crítica relaxada: pet em tratamento finaliza adoção com a caixa marcada | `PATCH .../status` → 200; o próprio teste da equipe original afirma esse comportamento | **Corrigido** no [PR #13](https://github.com/mendoncaluucas/PetMeet/pull/13), pela leitura literal (D1) |
 | DEF-03 | `PATCH /pets/{id}/situacao-adocao` marca como adotado um pet em tratamento, sem processo | 200 com zero processos; exposto na tela do pet | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
 | DEF-04 | Voltar um pet "em processo" para "disponível" permite um segundo processo; cancelar o segundo devolve o pet já adotado para "disponível" | Sequência inteira com 200/201 | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
 | DEF-05 | Depois do atalho do DEF-03, finalizar o processo responde 409 *"já foi adotado por meio de outro processo"* — sem nenhum outro processo finalizado. O processo fica preso. | 409 com 0 processos finalizados | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
@@ -51,7 +51,7 @@ O N2 é, portanto, **terminar de resolver o problema que o enunciado propôs**, 
 | DEF-12 | CPF validado só pela quantidade de dígitos | `088.888.888-88` aceito; o primeiro dígito verificador deveria ser 0 | **Corrigido** no [PR #7](https://github.com/mendoncaluucas/PetMeet/pull/7) |
 | DEF-13 | Não há exclusão nem inativação de adotante (a API não tem nenhuma rota `DELETE`) | Lista de rotas do OpenAPI | **Corrigido** no [PR #9](https://github.com/mendoncaluucas/PetMeet/pull/9) |
 | DEF-14 | `PATCH` com `null` em adotante, pet ou padrinho ia direto para uma coluna `NOT NULL` e respondia 500. O contrato OpenAPI ainda anunciava esses campos como "aceita nulo". | `PATCH /pets/1 {"nome": null}` → 500; achado ao implementar o 1.6, em 29/09 | **Corrigido** nos [PRs #9](https://github.com/mendoncaluucas/PetMeet/pull/9) (adotante) e [#11](https://github.com/mendoncaluucas/PetMeet/pull/11) (pet e padrinho) |
-| DEF-15 | Id acima do limite do inteiro do Postgres (2.147.483.647), no caminho ou no corpo, derruba a consulta e responde 500 em todas as rotas | `GET /pets/99999999999` → 500, igual na `v1.0`; achado na verificação do PR do cartão de vacinação, em 15/10 | **Corrigido** na branch `fix/numeros-fora-do-intervalo`: limites declarados na borda (`app/rotas/parametros.py`, `IdNoCorpo`) e teste de contrato que falha se uma rota nova receber número sem limite. Na mesma verificação: doação com 3 casas era gravada arredondada (R$ 10,123 → 10,12) e acima de 99.999.999,99 dava 500 — agora 422 |
+| DEF-15 | Id acima do limite do inteiro do Postgres (2.147.483.647), no caminho ou no corpo, derruba a consulta e responde 500 em todas as rotas | `GET /pets/99999999999` → 500, igual na `v1.0`; achado na verificação do PR do cartão de vacinação, em 15/10 | **Corrigido** no [PR #18](https://github.com/mendoncaluucas/PetMeet/pull/18): limites declarados na borda (`app/rotas/parametros.py`, `IdNoCorpo`) e teste de contrato que falha se uma rota nova receber número sem limite. Na mesma verificação: doação com 3 casas era gravada arredondada (R$ 10,123 → 10,12) e acima de 99.999.999,99 dava 500 — agora 422 |
 
 ### 2.3 Armadilhas técnicas que as mudanças planejadas vão encontrar
 
@@ -88,12 +88,12 @@ Cada linha é algo que **quebraria o plano se fosse feito do jeito óbvio**.
 
 | # | Decisão | Recomendação | Situação |
 |---|---|---|---|
-| D1 | RN crítica: texto literal ou caixa de confirmação | **Literal** — pet em tratamento não finaliza adoção, sem exceção. Confirmar com o professor, porque a equipe original pode ter combinado outra leitura. | A decidir |
-| D2 | Veterinário: perfil no painel ou portal separado | **Perfil no painel.** O controle de acesso por perfil já existe; um portal separado seria outro sistema, com outro login e outro deploy. | A decidir |
-| D3 | Alertas de vacina: painel ou e-mail | **Painel obrigatório** (vencidas e vencendo em 30 dias). E-mail diário como extra. | A decidir |
-| D4 | Prestação de contas: página pública ou área do padrinho com login | **Pública, com agregados.** Sem login externo e sem dado pessoal. "Automatizado" = gerado a partir dos dados, sem montagem manual. | A decidir |
-| D5 | Portal do adotante | **Fora do N2.** Entra só se a fase 3 fechar antes do prazo. | A decidir |
-| D6 | Alertas para pet já adotado | **Fora dos alertas** da ONG: a responsabilidade passa ao adotante. | A decidir |
+| D1 | RN crítica: texto literal ou caixa de confirmação | **Literal** — pet em tratamento não finaliza adoção, sem exceção. Confirmar com o professor, porque a equipe original pode ter combinado outra leitura. | **Aplicada** em 08/10 ([#13](https://github.com/mendoncaluucas/PetMeet/pull/13)), sem confirmação do professor |
+| D2 | Veterinário: perfil no painel ou portal separado | **Perfil no painel.** O controle de acesso por perfil já existe; um portal separado seria outro sistema, com outro login e outro deploy. | **Aplicada** ([#14](https://github.com/mendoncaluucas/PetMeet/pull/14)) |
+| D3 | Alertas de vacina: painel ou e-mail | **Painel obrigatório** (vencidas e vencendo em 30 dias). E-mail diário como extra. | **Aplicada** no painel ([#17](https://github.com/mendoncaluucas/PetMeet/pull/17)); o e-mail não foi feito |
+| D4 | Prestação de contas: página pública ou área do padrinho com login | **Pública, com agregados.** Sem login externo e sem dado pessoal. "Automatizado" = gerado a partir dos dados, sem montagem manual. | **Aplicada** ([#21](https://github.com/mendoncaluucas/PetMeet/pull/21)) |
+| D5 | Portal do adotante | **Fora do N2.** Entra só se a fase 3 fechar antes do prazo. | **Aplicada**: ficou fora |
+| D6 | Alertas para pet já adotado | **Fora dos alertas** da ONG: a responsabilidade passa ao adotante. | **Aplicada** ([#17](https://github.com/mendoncaluucas/PetMeet/pull/17)) |
 
 ---
 
@@ -275,3 +275,44 @@ Os itens 0.5 (lock de dependências, `tzdata`, constante do Starlette) e 0.6 (`.
 
 **Decisão tomada pelo padrão do documento:** uma vacina desativada no catálogo continua nos alertas (H4.4). Se a ONG desativar uma vacina que algum pet tem vencida, o pet fica vencido até a vacina ser reativada para registrar a dose nova. Rever se isso incomodar no uso.
 
+### Fim da fase 3 — 26/10/2026
+
+**Entrou na `develop`** — 5 PRs, contando o do DEF-15; testes de 186 para **300**; migrations `0008` e `0009`. A evolução 2 do enunciado, o portal de prestação de contas automatizado, está completa. Com ela, as duas evoluções exigidas no N2 estão na `develop`.
+
+| Item | PR | Histórias |
+|---|---|---|
+| DEF-15 Número fora do intervalo do banco | [#18](https://github.com/mendoncaluucas/PetMeet/pull/18) | — |
+| 3.1 Histórias e critérios de aceite | [#19](https://github.com/mendoncaluucas/PetMeet/pull/19), em [`HISTORIAS-FASE-3.md`](HISTORIAS-FASE-3.md) | H7–H11 |
+| 3.2 Apadrinhamento · doação com destino | [#19](https://github.com/mendoncaluucas/PetMeet/pull/19) | H7, H8 |
+| 3.3 Gastos e estornos | [#20](https://github.com/mendoncaluucas/PetMeet/pull/20) | H9 |
+| 3.5 Portal público | [#21](https://github.com/mendoncaluucas/PetMeet/pull/21) | H11 |
+| 3.4 Esperado × recebido | [#22](https://github.com/mendoncaluucas/PetMeet/pull/22) | H10 |
+
+**Achados na verificação antes do merge** — defeitos que as próprias mudanças criariam e que foram corrigidos antes de entrar:
+
+| PR | Achado | Como apareceu |
+|---|---|---|
+| #18 | Doação com 3 casas era gravada arredondada (R$ 10,123 → 10,12) | verificação do próprio DEF-15 |
+| #19 | Um apadrinhamento criado no mesmo instante da finalização da adoção ficava ativo num pet adotado | teste com duas conexões, nas duas ordens |
+| #20 | O Painel contava o estorno como mais uma doação recebida | revisão de tudo que soma doações |
+| #20 | Doação com data futura era aceita desde a `v1.0` e poderia ser estornada antes de "acontecer" | revisão de tudo que soma doações |
+| #20 | O resumo do padrinho somava a doação estornada | revisão de tudo que soma doações |
+| #21 | O mês dos totais dependia do fuso da sessão do banco: o Postgres convertia a data para `timestamptz` | `EXPLAIN` e o banco em fusos extremos |
+| #21 | Doação ou gasto com data futura de um pet entraria na tabela por pet; o filtro existia, mas nenhum teste o cobria | prova reversa |
+| #21 | O destaque dizia "Saldo" ao lado de números de 12 meses, mas soma o histórico inteiro | leitura da página |
+| #22 | Com 2 mil padrinhos, a página levava de 1,2 a 4,3 s: uma subconsulta por célula da grade. Reescrita com somas agregadas, de 135 a 170 ms | banco descartável com 200 mil doações |
+| #22 | O texto para leitor de tela das células escapava da rolagem da tabela e alargava a página | largura medida no navegador |
+
+**O que escorregou e por quê**
+
+| Item | Situação | Motivo |
+|---|---|---|
+| Alvo de 23/10 | a fase fechou em 26/10 | três dias depois do alvo; o PR do portal (H11) passou à frente da H10, para garantir a entrega exigida antes do prazo |
+| 3.1 Revisão das histórias pelo Nicholas | pendente | as histórias foram escritas pelo backend para destravar a fase |
+| 2.7 *(Extra)* Aviso diário por e-mail | não iniciado | sem margem depois do atraso da fase 3 |
+| 0.2, 0.3, 1.7, 1.11, 1.12 | sem mudança | convites, issues, tela de processos, requisitos e roteiro de regressão |
+
+**Duas situações a mais na H10**, além das previstas: mês sem apadrinhamento ativo aparece como *sem compromisso*, e o mês corrente já pago aparece como *em dia*. Estão anotadas em [`HISTORIAS-FASE-3.md`](HISTORIAS-FASE-3.md).
+
+**Para a fase 4**
+- O README mandava subir o Docker Compose sem `--build`. Quem atualizasse o código ficava com a imagem antiga e a API em loop (`Can't locate revision`), o que aconteceu na máquina do backend depois da `0009`. Corrigido no PR que traz esta atualização, junto com o roteiro de testes, as notas da `v2.0` e o handoff.

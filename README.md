@@ -4,13 +4,19 @@ Backend da PetMeet — sistema de gestao de adocao e apadrinhamento de pets para
 ONGs de protecao animal. Controla fichas medicas, disponibilidade para adocao,
 processos de adocao, cadastro de adotantes/padrinhos e doacoes.
 
+Na `v2.0` (N2) entraram a ficha clinica e o cartao de vacinacao com alertas de
+vencimento, e a prestacao de contas: apadrinhamento mensal, gastos com estorno,
+esperado x recebido dos padrinhos e um portal publico. O resumo esta em
+[`docs/NOTAS-v2.0.md`](docs/NOTAS-v2.0.md) e o handoff em
+[`docs/HANDOFF-N2.md`](docs/HANDOFF-N2.md).
+
 Este documento e o ponto de partida para qualquer pessoa (ou time de
 front-end/DevOps) continuar o projeto sem depender de quem o escreveu.
 
 ## Stack
 
 - **FastAPI** — framework web assincrono
-- **PostgreSQL 16** + **SQLAlchemy 2.0 (async)** + **Alembic** — dados e migrations
+- **PostgreSQL 16** + **SQLAlchemy 2.1 (async)** + **Alembic** — dados e migrations
 - **Pydantic v2** — validacao e contratos da API
 - **JWT (python-jose) + bcrypt** — autenticacao e hash de senha
 - **pytest + pytest-asyncio + httpx** — testes automatizados
@@ -108,7 +114,7 @@ protegidas:
 
 ```bash
 cp .env.example .env
-docker compose up -d
+docker compose up -d --build
 ```
 
 Isso sobe o Postgres, aplica as migrations automaticamente e inicia a API em
@@ -117,6 +123,21 @@ dados de exemplo:
 
 ```bash
 docker compose exec api python -m scripts.seed
+```
+
+Depois de atualizar o codigo (`git pull`), rode de novo `docker compose up -d --build`.
+Sem o `--build`, o container continua com a imagem antiga, que nao conhece as
+migrations novas, e a API fica reiniciando com `Can't locate revision`.
+
+Se a porta 5432 ja estiver ocupada por outro Postgres, crie um
+`docker-compose.override.yml` (fora do git) trocando so a porta do host, e ajuste
+a `DATABASE_URL` e a `DATABASE_URL_TESTE` do `.env` para a mesma porta:
+
+```yaml
+services:
+  db:
+    ports: !override
+      - "5435:5432"
 ```
 
 ## Variaveis de ambiente
@@ -222,25 +243,30 @@ Em desenvolvimento o Vite faz proxy de `/api` e `/uploads` para
 
 ## Escopo entregue vs. proximos passos
 
-Este backend entrega o **escopo de alta prioridade**: RF01, RF03, RF04, RF06,
+A `v1.0` entregou o **escopo de alta prioridade**: RF01, RF03, RF04, RF06,
 RF09, RF12, RF14-RF18, RF20, RF21 e as regras de negocio criticas (RN01-RN08),
 com autenticacao, tratamento de erros centralizado e testes automatizados das
 regras criticas.
 
-Pendente para uma proxima fase (arquitetura ja preparada, so falta
-implementar as rotas/servicos especificos):
+A `v2.0` (N2) acrescentou:
 
-- **RF08** — o painel já monta o histórico por adotante e por pet usando os
+- **RF10/RF11** — apadrinhamento mensal padrinho↔pet, encerrado quando a adocao
+  e finalizada, e o esperado x recebido de cada padrinho mes a mes.
+- **RF19** — upload de foto integrado no painel (ficha do pet).
+- **RF22** — auditoria das mudancas de saude do pet e do registro e estorno de
+  doacoes e gastos (`app/servicos/auditoria.py`). A ficha clinica e o cartao de
+  vacinacao guardam a propria anulacao (quem, quando, motivo).
+- As duas evolucoes do N2: ficha clinica e cartao de vacinacao com alertas, e o
+  portal de prestacao de contas. Detalhes em
+  [`docs/NOTAS-v2.0.md`](docs/NOTAS-v2.0.md).
+
+Pendente:
+
+- **RF08** — o painel ja monta o historico por adotante e por pet usando os
   filtros `adotante_id`/`pet_id` de `GET /processos-adocao`. Falta apenas o
-  endpoint dedicado de histórico consolidado, se for desejado.
-- **RF10/RF11** — associação padrinho↔pet (modelo `Apadrinhamento` já existe
-  em `app/modelos/apadrinhamento.py`, falta a camada de serviço/rotas).
-- **RF13** — filtros avançados de consulta de doações.
-- **RF19** — concluído: o upload está implementado na API e integrado no
-  painel (ficha do pet, em `frontend/src/paginas/PetDetalhe.tsx`).
-- **RF22** — instrumentado no N2 para as mudanças de status de saúde do pet
-  (`app/servicos/auditoria.py`); os demais serviços entram conforme as
-  evoluções. A ficha clínica guarda a própria anulação (quem, quando, motivo).
-- **RNF06-RNF10, RNF12, RNF15-RNF20** — observabilidade avançada, cache,
-  backup/recuperação automatizados e monitoramento de dependências ficam a
+  endpoint dedicado de historico consolidado, se for desejado.
+- **RF13** — filtros avancados de consulta de doacoes (hoje so por padrinho).
+- **RF22** — auditoria de processos de adocao e de usuarios, e uma rota de consulta.
+- **RNF06-RNF10, RNF12, RNF15-RNF20** — observabilidade avancada, cache,
+  backup/recuperacao automatizados e monitoramento de dependencias ficam a
   cargo do time de DevOps/infra a partir da base aqui entregue.
