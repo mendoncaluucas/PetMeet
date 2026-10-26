@@ -10,26 +10,17 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.tempo import intervalo_do_mes
+from app.core.tempo import intervalo_do_mes, ultimos_meses
 from app.esquemas.publico import GastoDaCategoria, MesDoPortal, PetDoPortal, PortalTransparencia
 from app.repositorios import transparencia as repo_transparencia
 
 QUANTIDADE_DE_MESES = 12
 
 
-def _meses_ate(mes_atual: date) -> list[date]:
-    """Primeiro dia de cada um dos ultimos 12 meses, do mais antigo ao atual."""
-    meses = []
-    for atras in range(QUANTIDADE_DE_MESES - 1, -1, -1):
-        ano, indice = divmod(mes_atual.year * 12 + mes_atual.month - 1 - atras, 12)
-        meses.append(date(ano, indice + 1, 1))
-    return meses
-
-
 async def montar_portal(sessao: AsyncSession, hoje: date) -> PortalTransparencia:
     """`hoje` e o dia em Brasilia (hoje_na_ong): o mes dele e o que esta em andamento."""
     mes_atual, fim = intervalo_do_mes(hoje)
-    meses = _meses_ate(mes_atual)
+    meses = ultimos_meses(mes_atual, QUANTIDADE_DE_MESES)
     inicio = meses[0]
 
     acumulado = await repo_transparencia.saldo_antes_de(sessao, inicio)

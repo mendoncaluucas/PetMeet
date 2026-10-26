@@ -21,3 +21,12 @@ def intervalo_do_mes(dia: date) -> tuple[date, date]:
     inicio = dia.replace(day=1)
     fim = date(inicio.year + inicio.month // 12, inicio.month % 12 + 1, 1)
     return inicio, fim
+
+
+def ultimos_meses(dia: date, quantidade: int) -> list[date]:
+    """Primeiro dia de cada um dos ultimos `quantidade` meses, do mais antigo ao de `dia`."""
+    meses = []
+    for atras in range(quantidade - 1, -1, -1):
+        ano, indice = divmod(dia.year * 12 + dia.month - 1 - atras, 12)
+        meses.append(date(ano, indice + 1, 1))
+    return meses
