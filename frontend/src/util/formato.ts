@@ -15,6 +15,7 @@ import type {
   StatusSaudePet,
   StatusVacina,
   CategoriaGasto,
+  SituacaoDoMes,
 } from '../api/tipos'
 
 export type Tom = 'jade' | 'alerta' | 'ambar' | 'indigo' | 'neutro'
@@ -77,6 +78,14 @@ export const STATUS_VACINA: Record<StatusVacina, string> = {
   vencendo: 'Vencendo',
   em_dia: 'Em dia',
   sem_reforco: 'Sem reforço previsto',
+}
+
+export const SITUACOES_DO_MES: Record<SituacaoDoMes, string> = {
+  em_dia: 'Em dia',
+  parcial: 'Parcial',
+  sem_doacao: 'Sem doação',
+  em_andamento: 'Em andamento',
+  sem_compromisso: 'Sem compromisso',
 }
 
 export const TOM_VACINA: Record<StatusVacina, Tom> = {
@@ -163,6 +172,14 @@ export function formatarMes(chave: string): string {
   if (!partes) return chave
   const nome = MESES[Number(partes[2]) - 1]
   return nome ? `${nome} de ${partes[1]}` : chave
+}
+
+/** "2026-10" vira "out/26", para cabecalho de coluna. */
+export function formatarMesCurto(chave: string): string {
+  const partes = /^(\d{4})-(\d{2})$/.exec(chave)
+  if (!partes) return chave
+  const nome = MESES[Number(partes[2]) - 1]
+  return nome ? `${nome.slice(0, 3)}/${partes[1].slice(2)}` : chave
 }
 
 export function formatarCpf(cpf: string): string {

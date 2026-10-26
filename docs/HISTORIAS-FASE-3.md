@@ -85,6 +85,8 @@ Nenhuma história entra em desenvolvimento antes de este documento ser aprovado 
 5. A tela mostra os últimos 12 meses, com o mais recente primeiro, e destaca os padrinhos com mês **parcial** ou **sem doação**.
 6. Tudo calculado no banco. A lista de padrinhos é paginada.
 
+Na implementação (26/10), dois casos que o texto não cobria: mês sem apadrinhamento ativo aparece como **sem compromisso**, e não conta como pendência; o mês corrente já pago aparece como **em dia**, e não como em andamento. A tela fica em **Contribuições**, no menu da equipe.
+
 ### H11 — Portal público de prestação de contas (item 3.5)
 
 *Como doador ou visitante, quero ver quanto a ONG arrecadou e gastou, para confiar que o dinheiro foi bem usado.*

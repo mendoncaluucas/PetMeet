@@ -10,12 +10,14 @@ from app.esquemas.apadrinhamento import (
     ApadrinhamentoCriar,
     ApadrinhamentoEncerrar,
     ApadrinhamentoResposta,
+    EsperadoRecebido,
     PadrinhosDoPet,
 )
 from app.esquemas.comuns import PaginaResposta
 from app.modelos.enums import PerfilUsuario
 from app.rotas.parametros import IdNaConsulta, IdNoCaminho, Pagina, TamanhoPagina
 from app.servicos import apadrinhamento as servico_apadrinhamento
+from app.servicos import esperado_recebido as servico_esperado_recebido
 
 roteador = APIRouter(tags=["Apadrinhamentos"])
 
@@ -48,6 +50,28 @@ async def listar_apadrinhamentos(
         pagina=pagina,
         tamanho_pagina=tamanho_pagina,
     )
+
+
+@roteador.get(
+    "/apadrinhamentos/esperado-recebido",
+    response_model=PaginaResposta[EsperadoRecebido],
+    dependencies=[_requer_equipe],
+)
+async def esperado_recebido(
+    sessao: SessaoAsync,
+    so_pendentes: Annotated[bool, Query()] = False,
+    pagina: Pagina = 1,
+    tamanho_pagina: TamanhoPagina = 20,
+) -> PaginaResposta[EsperadoRecebido]:
+    """Mes a mes, quanto cada padrinho combinou e quanto doou, nos ultimos 12 meses (H10).
+
+    Mes fechado parcial ou sem doacao conta como pendente; o mes corrente nao e atraso.
+    Quem tem pendencia vem primeiro.
+    """
+    itens, total = await servico_esperado_recebido.listar(
+        sessao, hoje_na_ong(), pagina, tamanho_pagina, so_pendentes
+    )
+    return PaginaResposta(itens=itens, total=total, pagina=pagina, tamanho_pagina=tamanho_pagina)
 
 
 @roteador.post(

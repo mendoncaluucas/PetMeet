@@ -14,6 +14,7 @@ import type {
   CartaoVacinacao,
   Doacao,
   DoacaoCriar,
+  EsperadoRecebido,
   Gasto,
   GastoCriar,
   CategoriaGasto,
@@ -240,6 +241,17 @@ export const apadrinhamentos = {
       `/apadrinhamentos${consulta({
         ...filtros,
         incluir_encerrados: filtros.incluir_encerrados ? 'true' : undefined,
+      })}`,
+    ),
+
+  /** Ultimos 12 meses por padrinho, quem tem pendencia primeiro (H10). So a equipe. */
+  esperadoRecebido: (
+    filtros: { so_pendentes?: boolean; pagina?: number; tamanho_pagina?: number } = {},
+  ) =>
+    requisitar<PaginaResposta<EsperadoRecebido>>(
+      `/apadrinhamentos/esperado-recebido${consulta({
+        ...filtros,
+        so_pendentes: filtros.so_pendentes ? 'true' : undefined,
       })}`,
     ),
 
