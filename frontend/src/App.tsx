@@ -14,6 +14,7 @@ import { Adotantes } from './paginas/Adotantes'
 import { Padrinhos } from './paginas/Padrinhos'
 import { Doacoes } from './paginas/Doacoes'
 import { Equipe } from './paginas/Equipe'
+import { Gastos } from './paginas/Gastos'
 import { Vacinas } from './paginas/Vacinas'
 import { NaoEncontrada } from './paginas/NaoEncontrada'
 
@@ -117,6 +118,14 @@ export function App() {
           element={
             <SoEquipe>
               <Doacoes />
+            </SoEquipe>
+          }
+        />
+        <Route
+          path="gastos"
+          element={
+            <SoEquipe>
+              <Gastos />
             </SoEquipe>
           }
         />

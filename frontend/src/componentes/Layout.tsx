@@ -12,6 +12,7 @@ const TRABALHO_DIARIO = [
   { para: '/adotantes', rotulo: 'Adotantes', fim: false },
   { para: '/padrinhos', rotulo: 'Padrinhos', fim: false },
   { para: '/doacoes', rotulo: 'Doações', fim: false },
+  { para: '/gastos', rotulo: 'Gastos', fim: false },
 ]
 
 // O veterinario nao ve cadastros de pessoas nem adocoes: a API responde 403 a ele.

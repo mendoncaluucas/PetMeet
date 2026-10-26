@@ -14,6 +14,9 @@ import type {
   CartaoVacinacao,
   Doacao,
   DoacaoCriar,
+  Gasto,
+  GastoCriar,
+  CategoriaGasto,
   EspeciePet,
   PadrinhosDoPet,
   PaginaResposta,
@@ -149,6 +152,10 @@ export const doacoes = {
     requisitar<PaginaResposta<Doacao>>(`/doacoes${consulta({ ...opcoes })}`),
 
   criar: (dados: DoacaoCriar) => requisitar<Doacao>('/doacoes', { metodo: 'POST', corpo: dados }),
+
+  /** So o admin (D14). Lancamento negativo com a data de hoje; a original nao muda. */
+  estornar: (id: number, motivo: string) =>
+    requisitar<Doacao>(`/doacoes/${id}/estorno`, { metodo: 'POST', corpo: { motivo } }),
 }
 
 export const usuarios = {
@@ -245,4 +252,22 @@ export const apadrinhamentos = {
       metodo: 'POST',
       corpo: { data_fim: dataFim },
     }),
+}
+
+export const gastos = {
+  /** Mais recentes primeiro; cada estorno logo abaixo do gasto que corrige. */
+  listar: (
+    filtros: {
+      pagina?: number
+      tamanho_pagina?: number
+      categoria?: CategoriaGasto | ''
+      pet_id?: number
+    } = {},
+  ) => requisitar<PaginaResposta<Gasto>>(`/gastos${consulta({ ...filtros })}`),
+
+  registrar: (dados: GastoCriar) => requisitar<Gasto>('/gastos', { metodo: 'POST', corpo: dados }),
+
+  /** So o admin (D14). Gasto nao se edita nem se apaga: estorna-se. */
+  estornar: (id: number, motivo: string) =>
+    requisitar<Gasto>(`/gastos/${id}/estorno`, { metodo: 'POST', corpo: { motivo } }),
 }

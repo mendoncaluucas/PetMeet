@@ -14,6 +14,7 @@ import type {
   StatusProcessoAdocao,
   StatusSaudePet,
   StatusVacina,
+  CategoriaGasto,
 } from '../api/tipos'
 
 export type Tom = 'jade' | 'alerta' | 'ambar' | 'indigo' | 'neutro'
@@ -59,6 +60,16 @@ export const TOM_SAUDE: Record<StatusSaudePet, Tom> = {
   saudavel: 'jade',
   em_tratamento_medico: 'alerta',
   em_recuperacao: 'ambar',
+}
+
+export const CATEGORIAS_GASTO: Record<CategoriaGasto, string> = {
+  alimentacao: 'Alimentação',
+  veterinario_medicamentos: 'Veterinário e medicamentos',
+  vacinas: 'Vacinas',
+  higiene_limpeza: 'Higiene e limpeza',
+  estrutura_manutencao: 'Estrutura e manutenção',
+  transporte: 'Transporte',
+  outros: 'Outros',
 }
 
 export const STATUS_VACINA: Record<StatusVacina, string> = {
