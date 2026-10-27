@@ -55,7 +55,7 @@ Cada item abaixo já quebrou alguma coisa durante o N2, ou quebraria se fosse fe
 6. **`frontend/src/api/tipos.ts` é escrito à mão.** Mudou um schema da API, ele muda no mesmo PR.
 7. **Dinheiro é `Decimal`, somado no banco.** Lançamento financeiro não se apaga nem se edita: estorna-se (D13). O portal público usa schemas próprios em `app/esquemas/publico.py`, que não herdam dos internos (A-11).
 8. **Depois de atualizar o código, `docker compose up -d --build`.** Sem `--build`, o container fica com a imagem antiga e entra em loop com "Can't locate revision".
-9. **A regra crítica segue a leitura literal (D1)**: pet em tratamento não finaliza a adoção, sem exceção. A decisão foi do time, sem confirmação do professor; se a leitura dele for outra, o ponto de mudança é `app/servicos/processo_adocao.py`.
+9. **A regra crítica segue a leitura literal (D1), por decisão do time**: pet em tratamento não finaliza a adoção, sem exceção. A versão recebida permitia finalizar marcando o acompanhamento médico em dia; essa exceção saiu, e a coluna `acompanhamento_medico_em_dia` ficou só como histórico. A regra está em `_finalizar`, em `app/servicos/processo_adocao.py`.
 
 ## Matriz de papéis
 

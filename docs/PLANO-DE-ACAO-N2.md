@@ -88,7 +88,7 @@ Cada linha é algo que **quebraria o plano se fosse feito do jeito óbvio**.
 
 | # | Decisão | Recomendação | Situação |
 |---|---|---|---|
-| D1 | RN crítica: texto literal ou caixa de confirmação | **Literal** — pet em tratamento não finaliza adoção, sem exceção. Confirmar com o professor, porque a equipe original pode ter combinado outra leitura. | **Aplicada** em 08/10 ([#13](https://github.com/mendoncaluucas/PetMeet/pull/13)), sem confirmação do professor |
+| D1 | RN crítica: texto literal ou caixa de confirmação | **Literal** — pet em tratamento não finaliza adoção, sem exceção. | **Decidida pelo time** e aplicada em 08/10 ([#13](https://github.com/mendoncaluucas/PetMeet/pull/13)). A exceção da versão recebida (finalizar marcando o acompanhamento médico em dia) não está no enunciado e saiu |
 | D2 | Veterinário: perfil no painel ou portal separado | **Perfil no painel.** O controle de acesso por perfil já existe; um portal separado seria outro sistema, com outro login e outro deploy. | **Aplicada** ([#14](https://github.com/mendoncaluucas/PetMeet/pull/14)) |
 | D3 | Alertas de vacina: painel ou e-mail | **Painel obrigatório** (vencidas e vencendo em 30 dias). E-mail diário como extra. | **Aplicada** no painel ([#17](https://github.com/mendoncaluucas/PetMeet/pull/17)); o e-mail não foi feito |
 | D4 | Prestação de contas: página pública ou área do padrinho com login | **Pública, com agregados.** Sem login externo e sem dado pessoal. "Automatizado" = gerado a partir dos dados, sem montagem manual. | **Aplicada** ([#21](https://github.com/mendoncaluucas/PetMeet/pull/21)) |
