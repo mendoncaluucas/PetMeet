@@ -4,13 +4,19 @@ Backend da PetMeet — sistema de gestao de adocao e apadrinhamento de pets para
 ONGs de protecao animal. Controla fichas medicas, disponibilidade para adocao,
 processos de adocao, cadastro de adotantes/padrinhos e doacoes.
 
+Na `v2.0` (N2) entraram a ficha clinica e o cartao de vacinacao com alertas de
+vencimento, e a prestacao de contas: apadrinhamento mensal, gastos com estorno,
+esperado x recebido dos padrinhos e um portal publico. O resumo esta em
+[`docs/NOTAS-v2.0.md`](docs/NOTAS-v2.0.md) e o handoff em
+[`docs/HANDOFF-N2.md`](docs/HANDOFF-N2.md).
+
 Este documento e o ponto de partida para qualquer pessoa (ou time de
 front-end/DevOps) continuar o projeto sem depender de quem o escreveu.
 
 ## Stack
 
 - **FastAPI** — framework web assincrono
-- **PostgreSQL 16** + **SQLAlchemy 2.0 (async)** + **Alembic** — dados e migrations
+- **PostgreSQL 16** + **SQLAlchemy 2.1 (async)** + **Alembic** — dados e migrations
 - **Pydantic v2** — validacao e contratos da API
 - **JWT (python-jose) + bcrypt** — autenticacao e hash de senha
 - **pytest + pytest-asyncio + httpx** — testes automatizados
@@ -46,13 +52,34 @@ Detalhes completos em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) e
 ## Instalacao (ambiente local, sem Docker)
 
 ```bash
-python -m venv .venv
+python -m venv .venv        # Windows: py -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -r requirements-dev.lock
+pip install --no-deps -e .
 cp .env.example .env
 ```
 
+As dependencias vem das versoes travadas em `requirements-dev.lock` (e
+`requirements.lock`, sem as ferramentas de desenvolvimento, usado pela imagem
+Docker). Assim o projeto nao quebra sozinho quando sai versao nova de uma
+biblioteca.
+
 Ajuste o `.env` se necessario (usuario/senha do Postgres, `SECRET_KEY`, etc).
+
+### Atualizar ou acrescentar dependencias
+
+Edite o `pyproject.toml` e regenere os dois locks. O CI falha se o `pyproject.toml`
+mudar sem os locks acompanharem. O `uv` ja vem no `requirements-dev.lock`, na mesma
+versao que o CI usa.
+
+```bash
+uv pip compile pyproject.toml --universal --python-version 3.11 --no-header -o requirements.lock
+uv pip compile pyproject.toml --extra dev --universal --python-version 3.11 --no-header -o requirements-dev.lock
+```
+
+`--universal` grava as condicoes de plataforma: o mesmo lock serve no Windows e no
+Linux (o `uvloop`, por exemplo, so instala fora do Windows). Para subir uma versao
+especifica, acrescente `--upgrade-package nome-do-pacote`.
 
 Suba um Postgres local (ou use `docker compose up -d db` — veja abaixo) e
 depois rode as migrations:
@@ -61,7 +88,8 @@ depois rode as migrations:
 alembic upgrade head
 ```
 
-Popule dados de exemplo (cria um usuario admin e dois pets):
+Popule dados de exemplo (cria um admin, um veterinario e dois pets). E so para
+desenvolvimento e testes: as senhas abaixo sao publicas, nao rode o seed em producao.
 
 ```bash
 python -m scripts.seed
@@ -74,14 +102,19 @@ uvicorn app.main:app --reload
 ```
 
 A documentacao interativa (Swagger) fica em `http://localhost:8000/docs`.
-Use o botao **Authorize** com o usuario criado pelo seed
-(`admin@petmeet.org.br` / `admin123456`) para testar as rotas protegidas.
+Use o botao **Authorize** com um dos usuarios criados pelo seed para testar as rotas
+protegidas:
+
+| Perfil | E-mail | Senha |
+|---|---|---|
+| Admin | `admin@petmeet.org.br` | `admin123456` |
+| Veterinario | `veterinario@petmeet.org.br` | `vet123456` |
 
 ## Instalacao via Docker Compose (recomendado)
 
 ```bash
 cp .env.example .env
-docker compose up -d
+docker compose up -d --build
 ```
 
 Isso sobe o Postgres, aplica as migrations automaticamente e inicia a API em
@@ -90,6 +123,21 @@ dados de exemplo:
 
 ```bash
 docker compose exec api python -m scripts.seed
+```
+
+Depois de atualizar o codigo (`git pull`), rode de novo `docker compose up -d --build`.
+Sem o `--build`, o container continua com a imagem antiga, que nao conhece as
+migrations novas, e a API fica reiniciando com `Can't locate revision`.
+
+Se a porta 5432 ja estiver ocupada por outro Postgres, crie um
+`docker-compose.override.yml` (fora do git) trocando so a porta do host, e ajuste
+a `DATABASE_URL` e a `DATABASE_URL_TESTE` do `.env` para a mesma porta:
+
+```yaml
+services:
+  db:
+    ports: !override
+      - "5435:5432"
 ```
 
 ## Variaveis de ambiente
@@ -112,8 +160,8 @@ pytest -v
 
 O teste mais importante do projeto e
 [`testes/test_processo_adocao.py`](testes/test_processo_adocao.py): cobre a
-regra critica do enunciado (RN01/RF16 — pet em tratamento medico so finaliza
-adocao com acompanhamento em dia) e a concorrencia (RN02/RF17/RNF18 — dois
+regra critica do enunciado (RN01/RF16 — pet em tratamento medico nao tem a
+adocao finalizada) e a concorrencia (RN02/RF17/RNF18 — dois
 processos do mesmo pet nunca finalizam ao mesmo tempo).
 
 ## Qualidade de codigo
@@ -135,7 +183,13 @@ alembic upgrade head
 
 # desfazer a ultima migration
 alembic downgrade -1
+
+# conferir se os modelos e as migrations batem (o CI roda e falha se divergirem)
+alembic check
 ```
+
+Revise o arquivo gerado pelo `--autogenerate` antes do commit: ele traz toda
+diferenca entre modelos e banco, nao so a mudanca pretendida.
 
 ## Autenticacao
 
@@ -146,7 +200,15 @@ nas demais rotas.
 
 Perfis de usuario: `admin` e `voluntario` — ambos sao "equipe da ONG" e podem
 operar cadastros; rotas de criacao de usuarios (`/usuarios`) sao restritas a
-`admin`.
+`admin`. O `veterinario` consulta os pets e cuida da saude deles: e o unico que da
+alta de um tratamento medico, e nao acessa adotantes, padrinhos, doacoes nem
+processos de adocao. A matriz completa esta em
+[`docs/HISTORIAS-FASE-2.md`](docs/HISTORIAS-FASE-2.md).
+
+Sem login ficam so tres rotas: `POST /auth/login`, `GET /saude` e
+`GET /transparencia`, o portal publico de prestacao de contas (painel em
+`/transparencia`), que traz apenas totais, sem dado de pessoa. O teste
+`testes/test_transparencia.py` falha se outra rota nascer sem `requer_perfil`.
 
 ## Front-end
 
@@ -181,24 +243,30 @@ Em desenvolvimento o Vite faz proxy de `/api` e `/uploads` para
 
 ## Escopo entregue vs. proximos passos
 
-Este backend entrega o **escopo de alta prioridade**: RF01, RF03, RF04, RF06,
+A `v1.0` entregou o **escopo de alta prioridade**: RF01, RF03, RF04, RF06,
 RF09, RF12, RF14-RF18, RF20, RF21 e as regras de negocio criticas (RN01-RN08),
 com autenticacao, tratamento de erros centralizado e testes automatizados das
 regras criticas.
 
-Pendente para uma proxima fase (arquitetura ja preparada, so falta
-implementar as rotas/servicos especificos):
+A `v2.0` (N2) acrescentou:
 
-- **RF08** — o painel já monta o histórico por adotante e por pet usando os
+- **RF10/RF11** — apadrinhamento mensal padrinho↔pet, encerrado quando a adocao
+  e finalizada, e o esperado x recebido de cada padrinho mes a mes.
+- **RF19** — upload de foto integrado no painel (ficha do pet).
+- **RF22** — auditoria das mudancas de saude do pet e do registro e estorno de
+  doacoes e gastos (`app/servicos/auditoria.py`). A ficha clinica e o cartao de
+  vacinacao guardam a propria anulacao (quem, quando, motivo).
+- As duas evolucoes do N2: ficha clinica e cartao de vacinacao com alertas, e o
+  portal de prestacao de contas. Detalhes em
+  [`docs/NOTAS-v2.0.md`](docs/NOTAS-v2.0.md).
+
+Pendente:
+
+- **RF08** — o painel ja monta o historico por adotante e por pet usando os
   filtros `adotante_id`/`pet_id` de `GET /processos-adocao`. Falta apenas o
-  endpoint dedicado de histórico consolidado, se for desejado.
-- **RF10/RF11** — associação padrinho↔pet (modelo `Apadrinhamento` já existe
-  em `app/modelos/apadrinhamento.py`, falta a camada de serviço/rotas).
-- **RF13** — filtros avançados de consulta de doações.
-- **RF19** — concluído: o upload está implementado na API e integrado no
-  painel (ficha do pet, em `frontend/src/paginas/PetDetalhe.tsx`).
-- **RF22** — o modelo `LogAuditoria` já existe; falta instrumentar os
-  serviços para gravar cada alteração relevante.
-- **RNF06-RNF10, RNF12, RNF15-RNF20** — observabilidade avançada, cache,
-  backup/recuperação automatizados e monitoramento de dependências ficam a
+  endpoint dedicado de historico consolidado, se for desejado.
+- **RF13** — filtros avancados de consulta de doacoes (hoje so por padrinho).
+- **RF22** — auditoria de processos de adocao e de usuarios, e uma rota de consulta.
+- **RNF06-RNF10, RNF12, RNF15-RNF20** — observabilidade avancada, cache,
+  backup/recuperacao automatizados e monitoramento de dependencias ficam a
   cargo do time de DevOps/infra a partir da base aqui entregue.

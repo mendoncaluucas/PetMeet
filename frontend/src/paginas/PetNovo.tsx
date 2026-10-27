@@ -132,7 +132,7 @@ export function PetNovo() {
                 maxLength={255}
                 value={doencaAtual}
                 erro={errosCampo.doenca_atual}
-                dica="Enquanto o pet estiver em tratamento, a adoção só é finalizada com o acompanhamento em dia."
+                dica="Enquanto o pet estiver em tratamento, a adoção não pode ser finalizada."
                 onChange={(evento) => setDoencaAtual(evento.target.value)}
               />
             ) : null}

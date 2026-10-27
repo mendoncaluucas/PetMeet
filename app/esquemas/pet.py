@@ -2,9 +2,18 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.esquemas.comuns import AtualizacaoParcialSemNulo
 from app.modelos.enums import EspeciePet, SituacaoAdocaoPet, StatusSaudePet
+
+
+def _sem_espacos_nas_pontas(valor: object) -> object:
+    """Doenca so com espacos conta como nao informada: "   " passava como diagnostico, e a
+    equipe, que pode corrigir a doenca de um pet em tratamento, apagaria o texto assim."""
+    if isinstance(valor, str):
+        return valor.strip() or None
+    return valor
 
 
 class PetCriar(BaseModel):
@@ -14,6 +23,11 @@ class PetCriar(BaseModel):
     data_resgate: date
     status_saude: StatusSaudePet = StatusSaudePet.SAUDAVEL
     doenca_atual: str | None = Field(None, max_length=255)
+
+    @field_validator("doenca_atual", mode="before")
+    @classmethod
+    def limpar_doenca_atual(cls, valor: object) -> object:
+        return _sem_espacos_nas_pontas(valor)
 
     @model_validator(mode="after")
     def validar_doenca_atual(self) -> "PetCriar":
@@ -25,7 +39,7 @@ class PetCriar(BaseModel):
         return self
 
 
-class PetAtualizar(BaseModel):
+class PetAtualizar(AtualizacaoParcialSemNulo):
     nome: str | None = Field(None, min_length=1, max_length=100)
     especie: EspeciePet | None = None
     idade: int | None = Field(None, ge=0, le=40)
@@ -36,6 +50,11 @@ class PetAtualizarStatusSaude(BaseModel):
     status_saude: StatusSaudePet
     doenca_atual: str | None = Field(None, max_length=255)
 
+    @field_validator("doenca_atual", mode="before")
+    @classmethod
+    def limpar_doenca_atual(cls, valor: object) -> object:
+        return _sem_espacos_nas_pontas(valor)
+
     @model_validator(mode="after")
     def validar_doenca_atual(self) -> "PetAtualizarStatusSaude":
         if self.status_saude == StatusSaudePet.EM_TRATAMENTO_MEDICO and not self.doenca_atual:
@@ -45,8 +64,13 @@ class PetAtualizarStatusSaude(BaseModel):
         return self
 
 
-class PetAtualizarSituacaoAdocao(BaseModel):
-    situacao_adocao: SituacaoAdocaoPet
+class EstadoSaudePet(BaseModel):
+    """Retrato do status de saude, gravado na auditoria antes e depois de cada mudanca."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    status_saude: StatusSaudePet
+    doenca_atual: str | None
 
 
 class PetResposta(BaseModel):

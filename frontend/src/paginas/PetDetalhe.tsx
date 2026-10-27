@@ -3,7 +3,11 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ErroApi } from '../api/cliente'
 import { adotantes as apiAdotantes, pets, processos as apiProcessos } from '../api/recursos'
-import type { EspeciePet, Pet, SituacaoAdocaoPet, StatusSaudePet } from '../api/tipos'
+import type { EspeciePet, Pet, StatusSaudePet } from '../api/tipos'
+import { useAuth } from '../auth/ContextoAuth'
+import { CartaoVacinacao } from '../componentes/CartaoVacinacao'
+import { FichaClinica } from '../componentes/FichaClinica'
+import { PadrinhosDoPet } from '../componentes/PadrinhosDoPet'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
 import { Aviso, Carregando, Moldura, Selo } from '../componentes/Interface'
 import {
@@ -16,6 +20,7 @@ import {
   TOM_SITUACAO,
   formatarData,
   formatarDataHora,
+  idDaUrl,
   idadeEmTexto,
   tempoNoAbrigo,
 } from '../util/formato'
@@ -24,13 +29,19 @@ import { useRequisicao } from '../util/useRequisicao'
 const TAMANHO_MAXIMO_FOTO = 5 * 1024 * 1024
 const FORMATOS_FOTO = ['image/jpeg', 'image/png', 'image/webp']
 
-type Secao = 'nenhuma' | 'dados' | 'saude' | 'situacao'
+type Secao = 'nenhuma' | 'dados' | 'saude'
 
 export function PetDetalhe() {
   const { id } = useParams<{ id: string }>()
-  const petId = Number(id)
+  // Id invalido na barra de endereco nem chega a API: a resposta dela (422) e tecnica.
+  const petId = idDaUrl(id)
+  // O veterinario consulta a ficha e da alta; dados, foto e processos sao da equipe.
+  const { ehVeterinario, ehEquipe } = useAuth()
 
-  const { dados, carregando, erro } = useRequisicao(() => pets.obter(petId), [petId])
+  const { dados, carregando, erro } = useRequisicao(
+    () => (petId === null ? Promise.reject(new Error('Pet não encontrado.')) : pets.obter(petId)),
+    [petId],
+  )
   const [pet, setPet] = useState<Pet | null>(null)
   const [secao, setSecao] = useState<Secao>('nenhuma')
   const [mensagem, setMensagem] = useState<{ tom: 'sucesso' | 'erro'; texto: string } | null>(null)
@@ -77,12 +88,14 @@ export function PetDetalhe() {
       <div className="detalhe-pet">
         <div className="detalhe-coluna-foto">
           <Moldura url={pet.foto_url} nome={pet.nome} formato="retrato" />
-          <EnvioDeFoto
-            petId={pet.id}
-            temFoto={Boolean(pet.foto_url)}
-            aoEnviar={(atualizado) => aplicar(atualizado, 'Foto enviada.')}
-            aoFalhar={(texto) => setMensagem({ tom: 'erro', texto })}
-          />
+          {ehEquipe ? (
+            <EnvioDeFoto
+              petId={pet.id}
+              temFoto={Boolean(pet.foto_url)}
+              aoEnviar={(atualizado) => aplicar(atualizado, 'Foto enviada.')}
+              aoFalhar={(texto) => setMensagem({ tom: 'erro', texto })}
+            />
+          ) : null}
         </div>
 
         <div className="detalhe-blocos">
@@ -93,14 +106,16 @@ export function PetDetalhe() {
             <div className="ficha-corpo">
               <div className="secao-titulo">
                 <h2>Dados do animal</h2>
-                <button
-                  type="button"
-                  className="botao"
-                  data-tipo="texto"
-                  onClick={() => setSecao(secao === 'dados' ? 'nenhuma' : 'dados')}
-                >
-                  {secao === 'dados' ? 'Fechar' : 'Editar'}
-                </button>
+                {ehEquipe ? (
+                  <button
+                    type="button"
+                    className="botao"
+                    data-tipo="texto"
+                    onClick={() => setSecao(secao === 'dados' ? 'nenhuma' : 'dados')}
+                  >
+                    {secao === 'dados' ? 'Fechar' : 'Editar'}
+                  </button>
+                ) : null}
               </div>
 
               {secao === 'dados' ? (
@@ -137,11 +152,11 @@ export function PetDetalhe() {
             </div>
           </section>
 
-          {/* --- Ficha medica --- */}
+          {/* --- Estado de saude: o status que trava a adocao (RN01) e a alta (H2) --- */}
           <section className="ficha" data-saude={pet.status_saude}>
             <div className="ficha-corpo">
               <div className="secao-titulo">
-                <h2>Ficha médica</h2>
+                <h2>Estado de saúde</h2>
                 <button
                   type="button"
                   className="botao"
@@ -155,8 +170,11 @@ export function PetDetalhe() {
               {secao === 'saude' ? (
                 <FormularioSaude
                   pet={pet}
-                  aoSalvar={(atualizado) => aplicar(atualizado, 'Ficha médica atualizada.')}
-                  aoFalhar={(problema) => falhar(problema, 'Não foi possível atualizar a ficha.')}
+                  podeDarAlta={ehVeterinario}
+                  aoSalvar={(atualizado) => aplicar(atualizado, 'Estado de saúde atualizado.')}
+                  aoFalhar={(problema) =>
+                    falhar(problema, 'Não foi possível atualizar o estado de saúde.')
+                  }
                   aoCancelar={() => setSecao('nenhuma')}
                 />
               ) : (
@@ -171,8 +189,8 @@ export function PetDetalhe() {
                   )}
                   {pet.status_saude === 'em_tratamento_medico' ? (
                     <Aviso tom="atencao">
-                      Para finalizar uma adoção deste pet, a equipe precisa confirmar que o
-                      acompanhamento médico está em dia.
+                      Enquanto estiver em tratamento, a adoção deste pet não pode ser finalizada.
+                      Ela fica liberada depois da alta médica, que só o veterinário registra.
                     </Aviso>
                   ) : null}
                 </div>
@@ -180,41 +198,42 @@ export function PetDetalhe() {
             </div>
           </section>
 
-          {/* --- Situacao de adocao --- */}
+          {/* O cartao vem antes da ficha clinica: o alerta da pagina inicial rola ate ele, e
+              tudo o que fica acima ja esta carregado quando ele monta. A ficha, que carrega
+              em paralelo, nao empurra o cartao para baixo do ponto rolado. */}
+          <CartaoVacinacao
+            key={`cartao-${pet.id}`}
+            petId={pet.id}
+            especie={pet.especie}
+            podeRegistrar={ehVeterinario}
+          />
+
+          {/* key: outro pet, ficha nova. Formulario aberto ou pagina de um pet nao passam
+              para o seguinte (seria o atendimento registrado no pet errado). Prefixo distinto
+              do cartao: irmaos com a mesma key, o React pode duplicar ou omitir um deles. */}
+          <FichaClinica key={`ficha-${pet.id}`} petId={pet.id} podeRegistrar={ehVeterinario} />
+
+          {/* A equipe ve quem apadrinha; o veterinario, so quantos (D14). Enquanto o perfil
+              nao chegou, a contagem: ela serve a qualquer perfil. */}
+          <PadrinhosDoPet key={`padrinhos-${pet.id}`} petId={pet.id} mostrarNomes={ehEquipe} />
+
+          {/* --- Situacao de adocao: so leitura, muda pelo processo de adocao --- */}
           <section className="ficha">
             <div className="ficha-corpo">
               <div className="secao-titulo">
                 <h2>Situação de adoção</h2>
-                <button
-                  type="button"
-                  className="botao"
-                  data-tipo="texto"
-                  onClick={() => setSecao(secao === 'situacao' ? 'nenhuma' : 'situacao')}
-                >
-                  {secao === 'situacao' ? 'Fechar' : 'Alterar'}
-                </button>
               </div>
-
-              {secao === 'situacao' ? (
-                <FormularioSituacao
-                  pet={pet}
-                  aoSalvar={(atualizado) => aplicar(atualizado, 'Situação de adoção atualizada.')}
-                  aoFalhar={(problema) => falhar(problema, 'Não foi possível alterar a situação.')}
-                  aoCancelar={() => setSecao('nenhuma')}
-                />
-              ) : (
-                <p>
-                  {pet.situacao_adocao === 'disponivel'
-                    ? 'Disponível para adoção. Abra um processo quando aparecer um adotante interessado.'
-                    : pet.situacao_adocao === 'em_processo_adocao'
-                      ? 'Em processo de adoção. A situação muda sozinha quando o processo for finalizado.'
-                      : 'Adotado. A ficha fica no histórico do abrigo.'}
-                </p>
-              )}
+              <p>
+                {pet.situacao_adocao === 'disponivel'
+                  ? 'Disponível para adoção. Abra um processo quando aparecer um adotante interessado.'
+                  : pet.situacao_adocao === 'em_processo_adocao'
+                    ? 'Em processo de adoção. A situação muda sozinha quando o processo for finalizado ou cancelado.'
+                    : 'Adotado. A ficha fica no histórico do abrigo.'}
+              </p>
             </div>
           </section>
 
-          <ProcessosDoPet petId={pet.id} />
+          {ehEquipe ? <ProcessosDoPet petId={pet.id} /> : null}
         </div>
       </div>
     </>
@@ -363,13 +382,19 @@ function FormularioDados({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
   )
 }
 
-function FormularioSaude({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
+interface FormSaudeProps extends FormProps {
+  /** So o veterinario tira um pet de "em tratamento medico" (a API responde 403 aos demais). */
+  podeDarAlta: boolean
+}
+
+function FormularioSaude({ pet, podeDarAlta, aoSalvar, aoFalhar, aoCancelar }: FormSaudeProps) {
   const [status, setStatus] = useState<StatusSaudePet>(pet.status_saude)
   const [doenca, setDoenca] = useState(pet.doenca_atual ?? '')
   const [erroDoenca, setErroDoenca] = useState<string | undefined>()
   const [salvando, setSalvando] = useState(false)
 
   const exigeDoenca = status === 'em_tratamento_medico'
+  const altaBloqueada = pet.status_saude === 'em_tratamento_medico' && !podeDarAlta
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
@@ -399,9 +424,22 @@ function FormularioSaude({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
       <CampoSelecao
         rotulo="Estado de saúde"
         value={status}
+        dica={
+          altaBloqueada
+            ? 'Alta só pelo veterinário. Aqui você pode corrigir a doença informada.'
+            : undefined
+        }
         onChange={(e) => setStatus(e.target.value as StatusSaudePet)}
       >
-        {opcoesDe(STATUS_SAUDE)}
+        {(Object.entries(STATUS_SAUDE) as [StatusSaudePet, string][]).map(([valor, rotulo]) => (
+          <option
+            key={valor}
+            value={valor}
+            disabled={altaBloqueada && valor !== 'em_tratamento_medico'}
+          >
+            {rotulo}
+          </option>
+        ))}
       </CampoSelecao>
 
       {exigeDoenca ? (
@@ -417,44 +455,7 @@ function FormularioSaude({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
 
       <div className="acoes">
         <button type="submit" className="botao" disabled={salvando}>
-          {salvando ? 'Salvando…' : 'Salvar ficha médica'}
-        </button>
-        <button type="button" className="botao" data-tipo="texto" onClick={aoCancelar}>
-          Cancelar
-        </button>
-      </div>
-    </form>
-  )
-}
-
-function FormularioSituacao({ pet, aoSalvar, aoFalhar, aoCancelar }: FormProps) {
-  const [situacao, setSituacao] = useState<SituacaoAdocaoPet>(pet.situacao_adocao)
-  const [salvando, setSalvando] = useState(false)
-
-  async function enviar(evento: FormEvent) {
-    evento.preventDefault()
-    setSalvando(true)
-    try {
-      aoSalvar(await pets.atualizarSituacaoAdocao(pet.id, situacao))
-    } catch (problema) {
-      aoFalhar(problema)
-      setSalvando(false)
-    }
-  }
-
-  return (
-    <form className="formulario" onSubmit={enviar}>
-      <CampoSelecao
-        rotulo="Situação de adoção"
-        value={situacao}
-        dica="Finalizar um processo de adoção já marca o pet como adotado automaticamente."
-        onChange={(e) => setSituacao(e.target.value as SituacaoAdocaoPet)}
-      >
-        {opcoesDe(SITUACOES_ADOCAO)}
-      </CampoSelecao>
-      <div className="acoes">
-        <button type="submit" className="botao" disabled={salvando}>
-          {salvando ? 'Salvando…' : 'Salvar situação'}
+          {salvando ? 'Salvando…' : 'Salvar estado de saúde'}
         </button>
         <button type="button" className="botao" data-tipo="texto" onClick={aoCancelar}>
           Cancelar
@@ -471,7 +472,7 @@ function ProcessosDoPet({ petId }: { petId: number }) {
     () =>
       Promise.all([
         apiProcessos.listar({ pet_id: petId, tamanho_pagina: 50 }),
-        apiAdotantes.listar(1, 100),
+        apiAdotantes.listar(1, 100, true), // inclui inativos: dao nome aos processos antigos
       ]),
     [petId],
   )

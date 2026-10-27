@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.esquemas.comuns import AtualizacaoParcialSemNulo, ValidacaoCpfNoCadastro
+
 
 class AdotanteBase(BaseModel):
     nome: str = Field(..., min_length=2, max_length=150)
@@ -20,19 +22,22 @@ class AdotanteBase(BaseModel):
         return valor
 
 
-class AdotanteCriar(AdotanteBase):
+class AdotanteCriar(AdotanteBase, ValidacaoCpfNoCadastro):
     pass
 
 
-class AdotanteAtualizar(BaseModel):
+class AdotanteAtualizar(AtualizacaoParcialSemNulo):
     nome: str | None = Field(None, min_length=2, max_length=150)
     email: EmailStr | None = None
     telefone: str | None = Field(None, min_length=8, max_length=20)
     endereco: str | None = Field(None, min_length=5, max_length=255)
+    # False inativa, True reativa (DEF-13).
+    ativo: bool | None = None
 
 
 class AdotanteResposta(AdotanteBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    ativo: bool
     criado_em: datetime

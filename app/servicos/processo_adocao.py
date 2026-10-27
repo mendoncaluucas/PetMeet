@@ -4,39 +4,31 @@ Este e o modulo mais sensivel do sistema: aqui vive a regra critica do
 enunciado (RN01/RF16) e a garantia de consistencia sob concorrencia (RNF18).
 """
 
+from datetime import date
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RecursoNaoEncontradoError, RegraNegocioError
+from app.core.tempo import hoje_na_ong
 from app.esquemas.processo_adocao import ProcessoAdocaoAtualizarStatus, ProcessoAdocaoCriar
 from app.modelos.enums import SituacaoAdocaoPet, StatusProcessoAdocao, StatusSaudePet
+from app.modelos.pet import Pet
 from app.modelos.processo_adocao import ProcessoAdocao
 from app.repositorios import adotante as repo_adotante
+from app.repositorios import apadrinhamento as repo_apadrinhamento
 from app.repositorios import pet as repo_pet
 from app.repositorios import processo_adocao as repo_processo
+from app.servicos.unicidade import gravar_sem_duplicar
 
 _STATUS_ENCERRADOS = {StatusProcessoAdocao.FINALIZADO, StatusProcessoAdocao.CANCELADO}
+_EM_ANDAMENTO = "Este pet ja possui um processo de adocao em andamento."
 
 
 async def criar_processo_adocao(
     sessao: AsyncSession, dados: ProcessoAdocaoCriar, responsavel_id: int
 ) -> ProcessoAdocao:
-    # Trava a linha do pet ja na criacao: evita que dois adotantes iniciem processo
-    # para o mesmo pet ao mesmo tempo (RNF18).
-    pet = await repo_pet.obter_por_id_com_lock(sessao, dados.pet_id)
-    if pet is None:
-        raise RecursoNaoEncontradoError(f"Pet {dados.pet_id} nao encontrado.")
-
-    if await repo_adotante.obter_por_id(sessao, dados.adotante_id) is None:
-        raise RecursoNaoEncontradoError(f"Adotante {dados.adotante_id} nao encontrado.")
-
-    # RN04: pet ja adotado nunca reabre processo.
-    if pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO:
-        raise RegraNegocioError("Este pet ja foi adotado e nao pode iniciar um novo processo.")
-
-    # RF17 (parte 1): nao permite dois processos concorrentes para o mesmo pet.
-    if pet.situacao_adocao == SituacaoAdocaoPet.EM_PROCESSO_ADOCAO:
-        raise RegraNegocioError("Este pet ja possui um processo de adocao em andamento.")
+    pet = await _travar_pet_para_novo_processo(sessao, dados)
 
     processo = ProcessoAdocao(
         pet_id=dados.pet_id,
@@ -44,7 +36,10 @@ async def criar_processo_adocao(
         responsavel_id=responsavel_id,
         status=StatusProcessoAdocao.EM_ANALISE,
     )
-    await repo_processo.criar(sessao, processo)
+    # O pet pode estar 'disponivel' com um processo ativo esquecido, gravado pelo atalho
+    # manual que existia antes (DEF-04). O indice unico de processo ativo barra, e a
+    # resposta e a mesma do caso comum.
+    await gravar_sem_duplicar(sessao, repo_processo.criar(sessao, processo), _EM_ANDAMENTO)
 
     # RN03: pet em processo deve ser identificado como 'em_processo_adocao'.
     pet.situacao_adocao = SituacaoAdocaoPet.EM_PROCESSO_ADOCAO
@@ -52,6 +47,34 @@ async def criar_processo_adocao(
     await sessao.commit()
     await sessao.refresh(processo)
     return processo
+
+
+async def _travar_pet_para_novo_processo(sessao: AsyncSession, dados: ProcessoAdocaoCriar) -> Pet:
+    # Trava a linha do pet ja na criacao: evita que dois adotantes iniciem processo
+    # para o mesmo pet ao mesmo tempo (RNF18).
+    pet = await repo_pet.obter_por_id_com_lock(sessao, dados.pet_id)
+    if pet is None:
+        raise RecursoNaoEncontradoError(f"Pet {dados.pet_id} nao encontrado.")
+
+    # Trava o adotante em modo compartilhado: uma exclusao simultanea espera este processo
+    # ser gravado (e entao recusa), ou, se chegou antes, faz esta abertura ver o adotante
+    # ja excluido -- em vez de quebrar na chave externa.
+    adotante = await repo_adotante.obter_por_id_com_lock(
+        sessao, dados.adotante_id, compartilhado=True
+    )
+    if adotante is None:
+        raise RecursoNaoEncontradoError(f"Adotante {dados.adotante_id} nao encontrado.")
+    if not adotante.ativo:
+        raise RegraNegocioError("Adotante inativo: reative o cadastro antes de abrir um processo.")
+
+    # RN04: pet ja adotado nunca reabre processo.
+    if pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO:
+        raise RegraNegocioError("Este pet ja foi adotado e nao pode iniciar um novo processo.")
+
+    # RF17 (parte 1): nao permite dois processos concorrentes para o mesmo pet.
+    if pet.situacao_adocao == SituacaoAdocaoPet.EM_PROCESSO_ADOCAO:
+        raise RegraNegocioError(_EM_ANDAMENTO)
+    return pet
 
 
 async def obter_processo_ou_falhar(sessao: AsyncSession, processo_id: int) -> ProcessoAdocao:
@@ -72,57 +95,85 @@ async def listar_processos(
 
 
 async def atualizar_status_processo(
-    sessao: AsyncSession, processo_id: int, dados: ProcessoAdocaoAtualizarStatus
+    sessao: AsyncSession,
+    processo_id: int,
+    dados: ProcessoAdocaoAtualizarStatus,
+    hoje: date | None = None,
 ) -> ProcessoAdocao:
-    processo = await obter_processo_ou_falhar(sessao, processo_id)
+    """`hoje` (dia em Brasilia) data o encerramento dos apadrinhamentos na finalizacao."""
+    processo, pet = await _travar_para_transicao(sessao, processo_id)
 
-    if processo.status in _STATUS_ENCERRADOS:
-        raise RegraNegocioError(
-            f"Processo {processo_id} ja esta '{processo.status.value}' e nao pode ser alterado."
+    if dados.status == StatusProcessoAdocao.FINALIZADO:
+        _finalizar(processo, pet)
+        # D12: pet adotado deixa o abrigo; os apadrinhamentos dele terminam aqui, na mesma
+        # transacao -- se a finalizacao falhar no commit, nenhum e encerrado.
+        await repo_apadrinhamento.encerrar_ativos_do_pet(
+            sessao, pet.id, hoje if hoje is not None else hoje_na_ong()
         )
+    else:
+        processo.status = dados.status
+        # Cancelar so devolve o pet se ele estava em processo: um pet ja adotado por
+        # outro processo continua adotado (DEF-04).
+        if (
+            dados.status == StatusProcessoAdocao.CANCELADO
+            and pet.situacao_adocao == SituacaoAdocaoPet.EM_PROCESSO_ADOCAO
+        ):
+            pet.situacao_adocao = SituacaoAdocaoPet.DISPONIVEL
+
+    await _commitar_transicao(sessao)
+    await sessao.refresh(processo)
+    return processo
+
+
+async def _travar_para_transicao(
+    sessao: AsyncSession, processo_id: int
+) -> tuple[ProcessoAdocao, Pet]:
+    """Trava pet e processo, nessa ordem, e so entao confere se o processo ainda pode mudar.
+
+    A ordem pet -> processo e a mesma da criacao de processo, o que evita deadlock.
+    """
+    processo = await obter_processo_ou_falhar(sessao, processo_id)
 
     # Trava a linha do pet durante toda a transicao de status (RNF18): garante que,
     # se dois processos diferentes do MESMO pet tentarem finalizar ao mesmo tempo, o
     # segundo so prossegue depois que o primeiro commita -- e nesse ponto ele ja ve
-    # a situacao_adocao atualizada e e rejeitado pela checagem abaixo.
+    # a situacao_adocao atualizada e e rejeitado pela checagem de _finalizar.
     pet = await repo_pet.obter_por_id_com_lock(sessao, processo.pet_id)
     if pet is None:
         raise RecursoNaoEncontradoError(f"Pet {processo.pet_id} nao encontrado.")
 
-    if dados.status == StatusProcessoAdocao.CANCELADO:
-        processo.status = StatusProcessoAdocao.CANCELADO
-        pet.situacao_adocao = SituacaoAdocaoPet.DISPONIVEL
+    # O processo foi lido antes da trava: uma requisicao concorrente pode ter cancelado
+    # ou finalizado ele nesse meio tempo. O refresh rele do banco e trava a linha --
+    # um SELECT ... FOR UPDATE comum devolveria o objeto ja carregado na sessao, com o
+    # status antigo, e as duas requisicoes passariam (DEF-06).
+    await sessao.refresh(processo, with_for_update=True)
+    if processo.status in _STATUS_ENCERRADOS:
+        raise RegraNegocioError(
+            f"Processo {processo_id} ja esta '{processo.status.value}' e nao pode ser alterado."
+        )
+    return processo, pet
 
-    elif dados.status == StatusProcessoAdocao.APROVADO:
-        processo.status = StatusProcessoAdocao.APROVADO
 
-    elif dados.status == StatusProcessoAdocao.EM_ANALISE:
-        processo.status = StatusProcessoAdocao.EM_ANALISE
+def _finalizar(processo: ProcessoAdocao, pet: Pet) -> None:
+    # RF17 (parte 2): outro processo do mesmo pet ja foi finalizado enquanto este
+    # estava em analise/aprovado -- rejeita antes mesmo de tentar commitar.
+    if pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO:
+        raise ConflitoError("Este pet ja foi adotado por meio de outro processo.")
 
-    elif dados.status == StatusProcessoAdocao.FINALIZADO:
-        # RF17 (parte 2): outro processo do mesmo pet ja foi finalizado enquanto este
-        # estava em analise/aprovado -- rejeita antes mesmo de tentar commitar.
-        if pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO:
-            raise ConflitoError("Este pet ja foi adotado por meio de outro processo.")
+    # RN01/RF16, regra critica do enunciado, sem excecao (decisao D1): pet em tratamento
+    # medico nao tem a adocao finalizada. A versao recebida finalizava se alguem marcasse
+    # o acompanhamento medico em dia (DEF-02). A analise e a aprovacao seguem permitidas.
+    if pet.status_saude == StatusSaudePet.EM_TRATAMENTO_MEDICO:
+        raise RegraNegocioError(
+            "Pet em tratamento medico nao pode ter a adocao finalizada. "
+            "Aguarde a alta medica para finalizar."
+        )
 
-        # RN01/RF16: pet em tratamento medico so finaliza com doenca identificada
-        # e acompanhamento medico em dia confirmado pelo adotante.
-        if pet.status_saude == StatusSaudePet.EM_TRATAMENTO_MEDICO:
-            if not pet.doenca_atual:
-                raise RegraNegocioError(
-                    "Pet esta em tratamento medico mas nao ha doenca identificada no cadastro; "
-                    "atualize o cadastro do pet antes de finalizar a adocao."
-                )
-            if not dados.acompanhamento_medico_em_dia:
-                raise RegraNegocioError(
-                    "Pet em tratamento medico: a finalizacao exige que o adotante esteja de "
-                    "acordo com o acompanhamento medico (consultas semanais/mensais) em dia."
-                )
-            processo.acompanhamento_medico_em_dia = True
+    processo.status = StatusProcessoAdocao.FINALIZADO
+    pet.situacao_adocao = SituacaoAdocaoPet.ADOTADO
 
-        processo.status = StatusProcessoAdocao.FINALIZADO
-        pet.situacao_adocao = SituacaoAdocaoPet.ADOTADO
 
+async def _commitar_transicao(sessao: AsyncSession) -> None:
     try:
         await sessao.commit()
     except IntegrityError as erro:
@@ -132,6 +183,3 @@ async def atualizar_status_processo(
         raise ConflitoError(
             "Este pet ja possui um processo de adocao finalizado (conflito de concorrencia)."
         ) from erro
-
-    await sessao.refresh(processo)
-    return processo

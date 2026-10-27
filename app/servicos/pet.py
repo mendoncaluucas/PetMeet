@@ -3,15 +3,18 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import obter_configuracoes
-from app.core.excecoes import RecursoNaoEncontradoError, RegraNegocioError
+from app.core.excecoes import NaoAutorizadoError, RecursoNaoEncontradoError, RegraNegocioError
 from app.esquemas.pet import (
+    EstadoSaudePet,
     PetAtualizar,
     PetAtualizarStatusSaude,
     PetCriar,
 )
-from app.modelos.enums import EspeciePet, SituacaoAdocaoPet, StatusSaudePet
+from app.modelos.enums import EspeciePet, PerfilUsuario, SituacaoAdocaoPet, StatusSaudePet
 from app.modelos.pet import Pet
+from app.modelos.usuario import Usuario
 from app.repositorios import pet as repo_pet
+from app.servicos import auditoria as servico_auditoria
 
 configuracoes = obter_configuracoes()
 
@@ -56,33 +59,44 @@ async def atualizar_pet(sessao: AsyncSession, pet_id: int, dados: PetAtualizar) 
 
 
 async def atualizar_status_saude(
-    sessao: AsyncSession, pet_id: int, dados: PetAtualizarStatusSaude
+    sessao: AsyncSession, pet_id: int, dados: PetAtualizarStatusSaude, usuario: Usuario
 ) -> Pet:
-    pet = await obter_pet_ou_falhar(sessao, pet_id)
-    pet.status_saude = dados.status_saude
-    pet.doenca_atual = (
-        dados.doenca_atual if dados.status_saude == StatusSaudePet.EM_TRATAMENTO_MEDICO else None
+    # Mesma trava da finalizacao da adocao: a alta e a finalizacao nao se cruzam, e o
+    # "antes" gravado na auditoria e o que esta no banco, nao o de uma leitura antiga.
+    pet = await repo_pet.obter_por_id_com_lock(sessao, pet_id)
+    if pet is None:
+        raise RecursoNaoEncontradoError(f"Pet {pet_id} nao encontrado.")
+
+    antes = EstadoSaudePet.model_validate(pet)
+    depois = EstadoSaudePet(
+        status_saude=dados.status_saude,
+        doenca_atual=(
+            dados.doenca_atual
+            if dados.status_saude == StatusSaudePet.EM_TRATAMENTO_MEDICO
+            else None
+        ),
     )
-    return await repo_pet.salvar(sessao, pet)
+    if depois == antes:
+        return await repo_pet.salvar(sessao, pet)  # nada mudou: so libera a trava
 
+    da_alta = (
+        antes.status_saude == StatusSaudePet.EM_TRATAMENTO_MEDICO
+        and depois.status_saude != StatusSaudePet.EM_TRATAMENTO_MEDICO
+    )
+    if da_alta and usuario.perfil != PerfilUsuario.VETERINARIO:
+        raise NaoAutorizadoError("So o veterinario pode dar alta de um tratamento medico.")
 
-async def atualizar_situacao_adocao(
-    sessao: AsyncSession, pet_id: int, nova_situacao: SituacaoAdocaoPet
-) -> Pet:
-    """Ajuste manual da situacao de adocao. RN04: um pet ja adotado nao volta a ficar disponivel
-    por essa via -- a reversao de um 'adotado' exige uma decisao administrativa explicita,
-    entao aqui bloqueamos a transicao ADOTADO -> outro estado para evitar reabrir uma adocao
-    finalizada sem passar por um novo processo formal.
-    """
-    pet = await obter_pet_ou_falhar(sessao, pet_id)
-    if (
-        pet.situacao_adocao == SituacaoAdocaoPet.ADOTADO
-        and nova_situacao != SituacaoAdocaoPet.ADOTADO
-    ):
-        raise RegraNegocioError(
-            "Pet ja adotado: a situacao de adocao nao pode ser alterada manualmente."
-        )
-    pet.situacao_adocao = nova_situacao
+    pet.status_saude = depois.status_saude
+    pet.doenca_atual = depois.doenca_atual
+    servico_auditoria.registrar(
+        sessao,
+        usuario_id=usuario.id,
+        entidade="pet",
+        entidade_id=pet.id,
+        acao="status_saude",
+        antes=antes,
+        depois=depois,
+    )
     return await repo_pet.salvar(sessao, pet)
 
 

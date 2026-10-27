@@ -1,7 +1,12 @@
 /** Campos de formulario com rotulo, dica e mensagem de erro por campo. */
 
 import { useId } from 'react'
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react'
 
 interface Comum {
   rotulo: string
@@ -21,6 +26,40 @@ export function Campo({ rotulo, dica, erro, ...resto }: CampoProps) {
       <label htmlFor={id}>{rotulo}</label>
       <input
         id={id}
+        aria-invalid={erro ? true : undefined}
+        aria-describedby={
+          [dica ? idDica : null, erro ? idErro : null].filter(Boolean).join(' ') || undefined
+        }
+        {...resto}
+      />
+      {dica ? (
+        <span className="campo-dica" id={idDica}>
+          {dica}
+        </span>
+      ) : null}
+      {erro ? (
+        <span className="campo-erro" id={idErro}>
+          {erro}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+type CampoTextoProps = Comum & TextareaHTMLAttributes<HTMLTextAreaElement>
+
+/** Texto longo (anamnese, conduta): mesmo rotulo, dica e erro do Campo. */
+export function CampoTexto({ rotulo, dica, erro, ...resto }: CampoTextoProps) {
+  const id = useId()
+  const idDica = `${id}-dica`
+  const idErro = `${id}-erro`
+
+  return (
+    <div className="campo" data-invalido={erro ? 'sim' : undefined}>
+      <label htmlFor={id}>{rotulo}</label>
+      <textarea
+        id={id}
+        rows={4}
         aria-invalid={erro ? true : undefined}
         aria-describedby={
           [dica ? idDica : null, erro ? idErro : null].filter(Boolean).join(' ') || undefined

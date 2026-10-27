@@ -5,8 +5,11 @@ description = "API da PetMeet - gestao de adocao e apadrinhamento de pets"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
+    # HTTP_422_UNPROCESSABLE_CONTENT (app/core/excecoes.py) so existe a partir da 0.48
+    "starlette>=0.48.0",
     "uvicorn[standard]>=0.32.0",
-    "sqlalchemy>=2.0.35",
+    # [asyncio] traz o greenlet, que o SQLAlchemy 2.1 deixou de instalar sozinho
+    "sqlalchemy[asyncio]>=2.1",  # distinct_on (cartao de vacinacao) so existe a partir da 2.1
     "asyncpg>=0.30.0",
     "alembic>=1.13.3",
     "pydantic>=2.9.0",
@@ -16,6 +19,9 @@ dependencies = [
     "python-multipart>=0.0.12",
     "pillow>=10.4.0",
     "email-validator>=2.2.0",
+    # Base de fusos para America/Sao_Paulo: o Windows nao tem uma, e o "hoje" da ONG
+    # nao pode depender do fuso da maquina (app/core/tempo.py)
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +32,9 @@ dev = [
     "ruff>=0.7.0",
     "black>=24.10.0",
     "mypy>=1.13.0",
+    # Gera os locks. Travado no requirements-dev.lock para o CI e a equipe usarem a mesma
+    # versao: uma versao nova poderia formatar o lock de outro jeito e derrubar o CI.
+    "uv>=0.12.0",
 ]
 
 [tool.ruff]

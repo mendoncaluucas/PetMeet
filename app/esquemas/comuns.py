@@ -1,10 +1,21 @@
-"""Schemas reutilizaveis entre os modulos (paginacao - RNF08)."""
+"""Schemas reutilizaveis entre os modulos (paginacao - RNF08; CPF - RN08)."""
 
-from typing import Generic, TypeVar
+import re
+from collections.abc import Callable, Iterable
+from decimal import Decimal
+from typing import Annotated, Any, Generic, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 T = TypeVar("T")
+
+# Maior INTEGER do Postgres. Acima disso o banco recusa a consulta e a API respondia 500
+# (DEF-15): todo id que chega do cliente e limitado aqui ou em app/rotas/parametros.py.
+MAIOR_INTEIRO_DO_BANCO = 2_147_483_647
+IdNoCorpo = Annotated[int, Field(le=MAIOR_INTEIRO_DO_BANCO)]
+# Dinheiro que entra pela API: Numeric(10, 2) no banco, ate 99.999.999,99. Mais de 2 casas
+# seria gravado arredondado sem aviso (DEF-15).
+ValorPositivo = Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=2)]
 
 
 class PaginaResposta(BaseModel, Generic[T]):
@@ -12,3 +23,93 @@ class PaginaResposta(BaseModel, Generic[T]):
     total: int
     pagina: int
     tamanho_pagina: int
+
+
+def _contrato_sem_nulo(esquema: dict[str, Any]) -> None:
+    """Tira "null" das opcoes de tipo e o default null de cada campo do esquema publicado.
+
+    Os campos sao declarados `X | None = None` so para o "nao enviado" funcionar; o
+    contrato nao pode dizer que null e aceito, porque nao e.
+    """
+    _tirar_nulo(esquema.get("properties", {}).values())
+
+
+def contrato_sem_nulo_em(*campos: str) -> Callable[[dict[str, Any]], None]:
+    """O mesmo, so para alguns campos: para PATCH que mistura campo NOT NULL com campo que
+    pode ser limpo de proposito (enviado como null)."""
+
+    def _ajustar(esquema: dict[str, Any]) -> None:
+        propriedades = esquema.get("properties", {})
+        _tirar_nulo(propriedades[campo] for campo in campos if campo in propriedades)
+
+    return _ajustar
+
+
+def _tirar_nulo(propriedades: Iterable[dict[str, Any]]) -> None:
+    for propriedade in propriedades:
+        opcoes = [opcao for opcao in propriedade.pop("anyOf", []) if opcao.get("type") != "null"]
+        if len(opcoes) == 1:
+            propriedade.update(opcoes[0])
+        elif opcoes:
+            propriedade["anyOf"] = opcoes
+        if "default" in propriedade and propriedade["default"] is None:
+            del propriedade["default"]
+
+
+class AtualizacaoParcialSemNulo(BaseModel):
+    """Base dos schemas de PATCH cujos campos sao todos NOT NULL no banco.
+
+    None so vale como "campo nao enviado". Enviado como null, ia direto para a coluna e a
+    atualizacao respondia 500 (DEF-14). O validador so roda para campos enviados, e o
+    contrato publicado (OpenAPI) deixa de anunciar null.
+
+    Nao use em schema com campo que pode ser limpo de proposito (enviado como null).
+    """
+
+    model_config = ConfigDict(json_schema_extra=_contrato_sem_nulo)
+
+    @field_validator("*")
+    @classmethod
+    def recusar_nulo(cls, valor: Any) -> Any:
+        if valor is None:
+            raise ValueError("o campo nao aceita nulo; para nao alterar, deixe de envia-lo")
+        return valor
+
+
+def normalizar_cpf(valor: str) -> str:
+    """Tira pontuacao e espacos: '529.982.247-25' -> '52998224725'."""
+    return re.sub(r"[.\-\s]", "", valor)
+
+
+def cpf_valido(cpf: str) -> bool:
+    """Confere os dois digitos verificadores. Sequencias como 111.111.111-11 passam na
+    conta, mas nao sao CPF emitido, e sao recusadas."""
+    if len(cpf) != 11 or not cpf.isdigit() or cpf == cpf[0] * 11:
+        return False
+    for tamanho in (9, 10):
+        pesos = range(tamanho + 1, 1, -1)
+        soma = sum(int(digito) * peso for digito, peso in zip(cpf[:tamanho], pesos, strict=True))
+        if soma * 10 % 11 % 10 != int(cpf[tamanho]):
+            return False
+    return True
+
+
+class ValidacaoCpfNoCadastro(BaseModel):
+    """Aceita CPF com pontuacao e confere os digitos verificadores.
+
+    Entra so nos schemas de criacao. Os de resposta nao podem herdar esta regra: o
+    validador rodaria tambem na leitura, e qualquer CPF ja gravado fora dela derrubaria
+    a listagem inteira com 500.
+    """
+
+    @field_validator("cpf", mode="before", check_fields=False)
+    @classmethod
+    def normalizar(cls, valor: Any) -> Any:
+        return normalizar_cpf(valor) if isinstance(valor, str) else valor
+
+    @field_validator("cpf", check_fields=False)
+    @classmethod
+    def conferir_digitos(cls, valor: str) -> str:
+        if not cpf_valido(valor):
+            raise ValueError("cpf invalido: os digitos verificadores nao conferem")
+        return valor

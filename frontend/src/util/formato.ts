@@ -13,6 +13,9 @@ import type {
   SituacaoAdocaoPet,
   StatusProcessoAdocao,
   StatusSaudePet,
+  StatusVacina,
+  CategoriaGasto,
+  SituacaoDoMes,
 } from '../api/tipos'
 
 export type Tom = 'jade' | 'alerta' | 'ambar' | 'indigo' | 'neutro'
@@ -51,12 +54,45 @@ export const TIPOS_DOACAO: Record<FrequenciaContribuicao, string> = {
 export const PERFIS: Record<PerfilUsuario, string> = {
   admin: 'Administrador',
   voluntario: 'Voluntário',
+  veterinario: 'Veterinário',
 }
 
 export const TOM_SAUDE: Record<StatusSaudePet, Tom> = {
   saudavel: 'jade',
   em_tratamento_medico: 'alerta',
   em_recuperacao: 'ambar',
+}
+
+export const CATEGORIAS_GASTO: Record<CategoriaGasto, string> = {
+  alimentacao: 'Alimentação',
+  veterinario_medicamentos: 'Veterinário e medicamentos',
+  vacinas: 'Vacinas',
+  higiene_limpeza: 'Higiene e limpeza',
+  estrutura_manutencao: 'Estrutura e manutenção',
+  transporte: 'Transporte',
+  outros: 'Outros',
+}
+
+export const STATUS_VACINA: Record<StatusVacina, string> = {
+  vencida: 'Vencida',
+  vencendo: 'Vencendo',
+  em_dia: 'Em dia',
+  sem_reforco: 'Sem reforço previsto',
+}
+
+export const SITUACOES_DO_MES: Record<SituacaoDoMes, string> = {
+  em_dia: 'Em dia',
+  parcial: 'Parcial',
+  sem_doacao: 'Sem doação',
+  em_andamento: 'Em andamento',
+  sem_compromisso: 'Sem compromisso',
+}
+
+export const TOM_VACINA: Record<StatusVacina, Tom> = {
+  vencida: 'alerta',
+  vencendo: 'ambar',
+  em_dia: 'jade',
+  sem_reforco: 'neutro',
 }
 
 export const TOM_SITUACAO: Record<SituacaoAdocaoPet, Tom> = {
@@ -115,10 +151,55 @@ export function formatarMoeda(valor: string | number): string {
   return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const MESES = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+]
+
+/** "2026-10" vira "outubro de 2026", sem passar por new Date() (mesmo motivo de formatarData). */
+export function formatarMes(chave: string): string {
+  const partes = /^(\d{4})-(\d{2})$/.exec(chave)
+  if (!partes) return chave
+  const nome = MESES[Number(partes[2]) - 1]
+  return nome ? `${nome} de ${partes[1]}` : chave
+}
+
+/** "2026-10" vira "out/26", para cabecalho de coluna. */
+export function formatarMesCurto(chave: string): string {
+  const partes = /^(\d{4})-(\d{2})$/.exec(chave)
+  if (!partes) return chave
+  const nome = MESES[Number(partes[2]) - 1]
+  return nome ? `${nome.slice(0, 3)}/${partes[1].slice(2)}` : chave
+}
+
 export function formatarCpf(cpf: string): string {
   const digitos = cpf.replace(/\D/g, '')
   if (digitos.length !== 11) return cpf
   return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`
+}
+
+/**
+ * Mesma conta de app/esquemas/comuns.py::cpf_valido: confere os dois digitos
+ * verificadores e recusa sequencias repetidas. Recebe so os digitos.
+ */
+export function cpfValido(digitos: string): boolean {
+  if (!/^\d{11}$/.test(digitos) || /^(\d)\1{10}$/.test(digitos)) return false
+  for (const tamanho of [9, 10]) {
+    let soma = 0
+    for (let i = 0; i < tamanho; i++) soma += Number(digitos[i]) * (tamanho + 1 - i)
+    if (((soma * 10) % 11) % 10 !== Number(digitos[tamanho])) return false
+  }
+  return true
 }
 
 /**
@@ -173,4 +254,33 @@ export function dataDeHoje(): string {
 /** Plural sem malabarismo: contagem(1, 'pet', 'pets') -> "1 pet". */
 export function contagem(quantidade: number, singular: string, plural: string): string {
   return `${quantidade} ${quantidade === 1 ? singular : plural}`
+}
+
+/**
+ * Soma dias a uma data "AAAA-MM-DD" sem passar por fuso horario: com new Date() local, a
+ * virada do horario de verao ou o UTC poderiam devolver um dia antes. Usada para sugerir
+ * a proxima dose (data da aplicacao + intervalo do catalogo).
+ */
+export function somarDias(iso: string, dias: number): string {
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  const data = new Date(Date.UTC(ano, mes - 1, dia + dias))
+  return data.toISOString().slice(0, 10)
+}
+
+/** "vence em 12 dias", "venceu há 3 dias", "vence hoje". */
+export function prazoDaDose(dias: number | null): string {
+  if (dias === null) return ''
+  if (dias === 0) return 'vence hoje'
+  if (dias > 0) return `vence em ${contagem(dias, 'dia', 'dias')}`
+  return `venceu há ${contagem(-dias, 'dia', 'dias')}`
+}
+
+/** Maior INTEGER do Postgres: ids acima disso nao existem (a API responde 422, DEF-15). */
+export const MAIOR_ID = 2_147_483_647
+
+/** Id vindo da URL: so inteiro positivo dentro do limite. "abc", "-1" ou "1e3" viram null. */
+export function idDaUrl(texto: string | undefined): number | null {
+  if (!texto || !/^\d+$/.test(texto)) return null
+  const id = Number(texto)
+  return id >= 1 && id <= MAIOR_ID ? id : null
 }

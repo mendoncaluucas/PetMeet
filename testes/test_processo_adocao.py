@@ -1,25 +1,27 @@
 """Testes da regra critica do sistema (RN01/RF16) e da concorrencia (RN02/RF17/RNF18).
 
 Este arquivo cobre exatamente o requisito central do enunciado: 'um pet com
-status Em Tratamento Medico nao pode ter seu processo de adocao finalizado'
-(ressalvada a excecao da RN01), alem da garantia de que dois processos do
-mesmo pet nunca finalizam ao mesmo tempo.
+status Em Tratamento Medico nao pode ter seu processo de adocao finalizado',
+sem excecao (decisao D1), alem da garantia de que dois processos do mesmo pet
+nunca finalizam ao mesmo tempo.
 """
 
 import asyncio
 from datetime import date
 
+import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excecoes import ConflitoError, RegraNegocioError
-from app.esquemas.processo_adocao import ProcessoAdocaoAtualizarStatus
+from app.esquemas.processo_adocao import ProcessoAdocaoAtualizarStatus, ProcessoAdocaoCriar
 from app.modelos.adotante import Adotante
-from app.modelos.enums import StatusProcessoAdocao
+from app.modelos.enums import SituacaoAdocaoPet, StatusProcessoAdocao, StatusSaudePet
 from app.modelos.pet import Pet
 from app.modelos.processo_adocao import ProcessoAdocao
 from app.servicos import processo_adocao as servico_processo
-from testes.conftest import FabricaSessaoTeste
+from testes.conftest import FabricaSessaoTeste, esperar_conexoes_bloqueadas
 
 
 async def _criar_pet(sessao: AsyncSession, **sobrescritas) -> Pet:
@@ -158,10 +160,14 @@ async def test_finalizar_processo_pet_em_tratamento_sem_acompanhamento_e_rejeita
     assert pet.situacao_adocao.value == "em_processo_adocao"
 
 
-async def test_finalizar_processo_pet_em_tratamento_com_acompanhamento_em_dia_funciona(
+async def test_finalizar_processo_pet_em_tratamento_com_acompanhamento_em_dia_e_rejeitado(
     client: AsyncClient, cabecalho_admin: dict, sessao: AsyncSession
 ) -> None:
-    # RN01: excecao expressa -- finaliza se o adotante estiver de acordo com o acompanhamento.
+    """DEF-02 / decisao D1: o enunciado proibe sem excecao.
+
+    Este teste afirmava o contrario -- finalizava se alguem marcasse o acompanhamento em
+    dia, a leitura flexivel da equipe original. Foi invertido, nao apagado.
+    """
     pet = await _criar_pet(sessao, status_saude="em_tratamento_medico", doenca_atual="Cinomose")
     adotante = await _criar_adotante(sessao, "77777777777")
     processo = (
@@ -178,44 +184,158 @@ async def test_finalizar_processo_pet_em_tratamento_com_acompanhamento_em_dia_fu
         headers=cabecalho_admin,
     )
 
+    assert resposta.status_code == 422
+    assert "tratamento" in resposta.json()["detalhe"]
+    await sessao.refresh(pet)
+    assert pet.situacao_adocao.value == "em_processo_adocao"
+
+
+async def test_aprovar_processo_de_pet_em_tratamento_continua_permitido(
+    client: AsyncClient, cabecalho_admin: dict, sessao: AsyncSession
+) -> None:
+    """Controle: o enunciado proibe so finalizar. A analise pode andar durante o tratamento."""
+    pet = await _criar_pet(sessao, status_saude="em_tratamento_medico", doenca_atual="Cinomose")
+    adotante = await _criar_adotante(sessao, "77777777778")
+    processo = (
+        await client.post(
+            "/processos-adocao",
+            json={"pet_id": pet.id, "adotante_id": adotante.id},
+            headers=cabecalho_admin,
+        )
+    ).json()
+
+    resposta = await client.patch(
+        f"/processos-adocao/{processo['id']}/status",
+        json={"status": "aprovado"},
+        headers=cabecalho_admin,
+    )
+
     assert resposta.status_code == 200
-    assert resposta.json()["status"] == "finalizado"
+    assert resposta.json()["status"] == "aprovado"
 
 
-async def test_finalizacao_concorrente_do_mesmo_pet_apenas_uma_vence(sessao: AsyncSession) -> None:
-    """RN02/RF17/RNF18: dois processos do MESMO pet tentando finalizar ao mesmo tempo --
-    apenas um pode vencer. Usa duas sessoes/conexoes reais (nao o mesmo objeto de sessao)
-    para reproduzir concorrencia de banco de verdade, e chama a camada de servico
-    diretamente (sem HTTP) para isolar exatamente a garantia que queremos testar.
+async def test_abertura_concorrente_de_processos_do_mesmo_pet_apenas_uma_vence(
+    sessao: AsyncSession,
+) -> None:
+    """RN02/RF17/RNF18: dois adotantes abrindo processo para o MESMO pet ao mesmo tempo --
+    apenas um pode vencer.
+
+    Substitui o teste de finalizacao concorrente de dois processos do mesmo pet: com o
+    indice unico de processo ativo (migration 0003), dois processos ativos para o mesmo
+    pet deixaram de existir, e a disputa passou a acontecer na abertura. Deterministico:
+    uma terceira conexao segura a trava do pet ate as duas aberturas estarem paradas nela.
     """
     pet = await _criar_pet(sessao)
     adotante1 = await _criar_adotante(sessao, "88888888881")
     adotante2 = await _criar_adotante(sessao, "88888888882")
 
-    # Cenario artificial: dois processos abertos para o mesmo pet, simulando uma falha
-    # anterior na camada de aplicacao -- a garantia final precisa vir do banco.
-    processo1 = ProcessoAdocao(
-        pet_id=pet.id, adotante_id=adotante1.id, status=StatusProcessoAdocao.EM_ANALISE
-    )
-    processo2 = ProcessoAdocao(
-        pet_id=pet.id, adotante_id=adotante2.id, status=StatusProcessoAdocao.EM_ANALISE
-    )
-    sessao.add_all([processo1, processo2])
-    await sessao.commit()
-    id_processo1, id_processo2 = processo1.id, processo2.id
-
-    async def _finalizar(processo_id: int) -> str:
+    async def _abrir(adotante_id: int) -> str:
         async with FabricaSessaoTeste() as sessao_local:
             try:
-                await servico_processo.atualizar_status_processo(
+                await servico_processo.criar_processo_adocao(
                     sessao_local,
-                    processo_id,
-                    ProcessoAdocaoAtualizarStatus(status=StatusProcessoAdocao.FINALIZADO),
+                    ProcessoAdocaoCriar(pet_id=pet.id, adotante_id=adotante_id),
+                    responsavel_id=None,
                 )
                 return "sucesso"
             except (RegraNegocioError, ConflitoError):
                 return "rejeitado"
 
-    resultados = await asyncio.gather(_finalizar(id_processo1), _finalizar(id_processo2))
+    async with FabricaSessaoTeste() as trava:
+        await trava.execute(select(Pet).where(Pet.id == pet.id).with_for_update())
+        tarefas = [
+            asyncio.create_task(_abrir(adotante1.id)),
+            asyncio.create_task(_abrir(adotante2.id)),
+        ]
+        await esperar_conexoes_bloqueadas(2)
+        await trava.rollback()
+    resultados = await asyncio.gather(*tarefas)
 
     assert sorted(resultados) == ["rejeitado", "sucesso"]
+
+
+async def test_cancelar_e_finalizar_o_mesmo_processo_ao_mesmo_tempo_apenas_um_vence(
+    sessao: AsyncSession,
+) -> None:
+    """DEF-06: cancelar e finalizar o MESMO processo ao mesmo tempo -- so um pode vencer.
+
+    Em sequencia, a segunda mudanca e recusada porque o processo ja esta encerrado.
+    Para reproduzir a corrida de forma deterministica, uma terceira conexao segura a
+    trava do pet enquanto as duas requisicoes leem o processo; so depois de as duas
+    estarem paradas na trava ela e liberada.
+    """
+    pet = await _criar_pet(sessao, situacao_adocao="em_processo_adocao")
+    adotante = await _criar_adotante(sessao, "99999999991")
+    processo = ProcessoAdocao(
+        pet_id=pet.id, adotante_id=adotante.id, status=StatusProcessoAdocao.EM_ANALISE
+    )
+    sessao.add(processo)
+    await sessao.commit()
+
+    async def _mudar_status(novo: StatusProcessoAdocao) -> str:
+        async with FabricaSessaoTeste() as sessao_local:
+            try:
+                await servico_processo.atualizar_status_processo(
+                    sessao_local, processo.id, ProcessoAdocaoAtualizarStatus(status=novo)
+                )
+                return "sucesso"
+            except (RegraNegocioError, ConflitoError):
+                return "rejeitado"
+
+    async with FabricaSessaoTeste() as trava:
+        await trava.execute(select(Pet).where(Pet.id == pet.id).with_for_update())
+        tarefas = [
+            asyncio.create_task(_mudar_status(StatusProcessoAdocao.CANCELADO)),
+            asyncio.create_task(_mudar_status(StatusProcessoAdocao.FINALIZADO)),
+        ]
+        await esperar_conexoes_bloqueadas(2)
+        await trava.rollback()
+    resultados = await asyncio.gather(*tarefas)
+
+    assert sorted(resultados) == ["rejeitado", "sucesso"]
+
+    async with FabricaSessaoTeste() as leitura:
+        final = await leitura.get(ProcessoAdocao, processo.id)
+        pet_final = await leitura.get(Pet, pet.id)
+    esperado = {
+        StatusProcessoAdocao.CANCELADO: SituacaoAdocaoPet.DISPONIVEL,
+        StatusProcessoAdocao.FINALIZADO: SituacaoAdocaoPet.ADOTADO,
+    }
+    assert pet_final.situacao_adocao == esperado[final.status]
+
+
+async def test_tratamento_registrado_durante_a_finalizacao_bloqueia_a_adocao(
+    sessao: AsyncSession,
+) -> None:
+    """Alguem registra o tratamento enquanto outra pessoa finaliza a adocao.
+
+    A finalizacao espera a trava do pet e precisa enxergar o status de saude que acabou
+    de ser gravado -- com o valor antigo, um pet em tratamento sairia adotado.
+    """
+    pet = await _criar_pet(sessao, situacao_adocao="em_processo_adocao")
+    adotante = await _criar_adotante(sessao, "99999999992")
+    processo = ProcessoAdocao(
+        pet_id=pet.id, adotante_id=adotante.id, status=StatusProcessoAdocao.APROVADO
+    )
+    sessao.add(processo)
+    await sessao.commit()
+
+    async def _finalizar() -> None:
+        async with FabricaSessaoTeste() as sessao_local:
+            await servico_processo.atualizar_status_processo(
+                sessao_local,
+                processo.id,
+                ProcessoAdocaoAtualizarStatus(status=StatusProcessoAdocao.FINALIZADO),
+            )
+
+    async with FabricaSessaoTeste() as veterinaria:
+        pet_na_outra_sessao = await veterinaria.get(Pet, pet.id)
+        pet_na_outra_sessao.status_saude = StatusSaudePet.EM_TRATAMENTO_MEDICO
+        pet_na_outra_sessao.doenca_atual = "Cinomose"
+        await veterinaria.flush()  # grava sem commit: segura a linha do pet
+        tarefa = asyncio.create_task(_finalizar())
+        await esperar_conexoes_bloqueadas(1)
+        await veterinaria.commit()
+
+    with pytest.raises(RegraNegocioError, match="tratamento"):
+        await tarefa

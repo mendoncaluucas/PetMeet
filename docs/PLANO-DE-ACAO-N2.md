@@ -1,0 +1,318 @@
+# Plano de Ação — N2
+
+> PetMeet · Equipe Draft · Manutenção e Melhoria
+> Período: 25/09 a 29/10/2026 · alvo de conclusão: **23/10**
+> Ponto de partida: tag [`v1.0`](https://github.com/mendoncaluucas/PetMeet/tree/v1.0), versão recebida da equipe original
+
+Todo defeito e toda armadilha técnica listados aqui foram **reproduzidos contra o código, o banco ou a API em 24 e 25/09** antes de entrar no documento. O que é risco de projeto, ainda não medível porque o código não existe, está marcado como tal.
+
+---
+
+## 1. Objetivo
+
+O enunciado descreve o problema da ONG como *dificuldade em controlar fichas médicas e acompanhar doações recorrentes de padrinhos*. A versão recebida não resolve nenhuma das duas metades — e as duas evoluções exigidas no N2 são exatamente elas.
+
+| Enunciado | Versão recebida |
+|---|---|
+| Controlar **fichas médicas** | Um campo `status_saude` e um texto `doenca_atual`. Sem histórico, sem atendimento, sem vacina. Qualquer voluntário muda o status. |
+| Acompanhar **doações recorrentes de padrinhos** | Doação é um registro solto marcado como `recorrente`. Não há comparação entre o esperado e o recebido, e o vínculo padrinho↔pet não é acessível pela API. |
+| **RN crítica:** pet em tratamento médico não pode ter a adoção finalizada | Finaliza, se alguém marcar uma caixa de confirmação. Há ainda um atalho que dispensa o processo. |
+| **Evolução:** cartão de vacinação digital com alertas de vencimento | Não existe |
+| **Evolução:** portal de prestação de contas automatizado | Não existe. Não há registro de gastos, só de doações. |
+
+O N2 é, portanto, **terminar de resolver o problema que o enunciado propôs**, corrigindo antes o que impede a base de sustentar as evoluções.
+
+---
+
+## 2. Diagnóstico
+
+### 2.1 O que se mantém
+
+- Arquitetura em camadas `rotas → serviços → repositórios → modelos`, tratamento de erros centralizado e configuração por variável de ambiente
+- RN02 com `SELECT ... FOR UPDATE` e índice único parcial como rede de segurança
+- CI com lint, testes contra Postgres real, build Docker com smoke test e publicação no GHCR
+- `ARQUITETURA.md`, `MODELO_DE_DADOS.md` e os dois READMEs, que correspondem ao código
+
+### 2.2 Defeitos reproduzidos
+
+| ID | Defeito | Evidência | Situação |
+|---|---|---|---|
+| DEF-01 | Projeto não sobe em instalação nova: o SQLAlchemy 2.1 deixou de instalar o `greenlet` | CI da `main` vermelho; container em loop de reinício | **Corrigido** no [PR #1](https://github.com/mendoncaluucas/PetMeet/pull/1) |
+| DEF-02 | RN crítica relaxada: pet em tratamento finaliza adoção com a caixa marcada | `PATCH .../status` → 200; o próprio teste da equipe original afirma esse comportamento | **Corrigido** no [PR #13](https://github.com/mendoncaluucas/PetMeet/pull/13), pela leitura literal (D1) |
+| DEF-03 | `PATCH /pets/{id}/situacao-adocao` marca como adotado um pet em tratamento, sem processo | 200 com zero processos; exposto na tela do pet | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
+| DEF-04 | Voltar um pet "em processo" para "disponível" permite um segundo processo; cancelar o segundo devolve o pet já adotado para "disponível" | Sequência inteira com 200/201 | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
+| DEF-05 | Depois do atalho do DEF-03, finalizar o processo responde 409 *"já foi adotado por meio de outro processo"* — sem nenhum outro processo finalizado. O processo fica preso. | 409 com 0 processos finalizados | **Corrigido** no [PR #8](https://github.com/mendoncaluucas/PetMeet/pull/8) |
+| DEF-06 | Cancelar e finalizar o mesmo processo ao mesmo tempo: as duas requisições recebem 200 | **27 de 30** rodadas; em sequência, a segunda recebe 422 | **Corrigido** no [PR #4](https://github.com/mendoncaluucas/PetMeet/pull/4) |
+| DEF-07 | Senha acima de 72 bytes derruba o login e o cadastro de usuário com 500 (bcrypt 5.0 passou a lançar `ValueError`) | Login com 80 bytes → 500; cadastro com 90 → 500. O schema aceita até 100 caracteres. | **Corrigido** no [PR #5](https://github.com/mendoncaluucas/PetMeet/pull/5) |
+| DEF-08 | Dois cadastros simultâneos com o mesmo CPF: o segundo recebe 500 em vez de 409. Mesmo padrão em padrinho e e-mail de usuário. | **4 de 10** rodadas | **Corrigido** no [PR #7](https://github.com/mendoncaluucas/PetMeet/pull/7) |
+| DEF-09 | Painel, "recebido este mês": o mês é calculado em UTC. A partir das 21h do último dia, mostra o mês seguinte. | `new Date().toISOString()` em 31/10 21:30 → `2026-11` | **Corrigido** no [PR #10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| DEF-10 | Totais do Painel somados no navegador sobre a primeira página (100 registros) | `LIMITE = 100` em `Painel.tsx` | **Corrigido** no [PR #10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| DEF-11 | Seed não é idempotente: rodado de novo, duplica os pets | Rex e Mingau com 2 registros cada | **Corrigido** no [PR #6](https://github.com/mendoncaluucas/PetMeet/pull/6) |
+| DEF-12 | CPF validado só pela quantidade de dígitos | `088.888.888-88` aceito; o primeiro dígito verificador deveria ser 0 | **Corrigido** no [PR #7](https://github.com/mendoncaluucas/PetMeet/pull/7) |
+| DEF-13 | Não há exclusão nem inativação de adotante (a API não tem nenhuma rota `DELETE`) | Lista de rotas do OpenAPI | **Corrigido** no [PR #9](https://github.com/mendoncaluucas/PetMeet/pull/9) |
+| DEF-14 | `PATCH` com `null` em adotante, pet ou padrinho ia direto para uma coluna `NOT NULL` e respondia 500. O contrato OpenAPI ainda anunciava esses campos como "aceita nulo". | `PATCH /pets/1 {"nome": null}` → 500; achado ao implementar o 1.6, em 29/09 | **Corrigido** nos [PRs #9](https://github.com/mendoncaluucas/PetMeet/pull/9) (adotante) e [#11](https://github.com/mendoncaluucas/PetMeet/pull/11) (pet e padrinho) |
+| DEF-15 | Id acima do limite do inteiro do Postgres (2.147.483.647), no caminho ou no corpo, derruba a consulta e responde 500 em todas as rotas | `GET /pets/99999999999` → 500, igual na `v1.0`; achado na verificação do PR do cartão de vacinação, em 15/10 | **Corrigido** no [PR #18](https://github.com/mendoncaluucas/PetMeet/pull/18): limites declarados na borda (`app/rotas/parametros.py`, `IdNoCorpo`) e teste de contrato que falha se uma rota nova receber número sem limite. Na mesma verificação: doação com 3 casas era gravada arredondada (R$ 10,123 → 10,12) e acima de 99.999.999,99 dava 500 — agora 422 |
+
+### 2.3 Armadilhas técnicas que as mudanças planejadas vão encontrar
+
+Cada linha é algo que **quebraria o plano se fosse feito do jeito óbvio**.
+
+| ID | Onde morde | O que acontece | Tipo | Como evitar |
+|---|---|---|---|---|
+| A-01 | Primeira migration nova | Modelos e migration `0001` divergem: `alembic check` falha com **19 operações** — 10 colunas `criado_em`/`atualizado_em` viram `NOT NULL` e as constraints únicas de CPF (adotante, padrinho) e e-mail (usuário) são trocadas por índices. Um `--autogenerate`, que é o comando do README, arrasta tudo isso junto. | Medido | Migration `0002` de reconciliação, revisada linha a linha, e `alembic check` no CI |
+| A-02 | Correção do DEF-06 | Reler o processo com `select(...).with_for_update()` depois de já tê-lo carregado **devolve o valor antigo** guardado na sessão: o banco dizia `cancelado`, a leitura trouxe `em_analise`. | Medido | `sessao.refresh(obj, with_for_update=True)` ou `populate_existing`, ambos verificados |
+| A-03 | Validador de CPF | `AdotanteResposta` e `PadrinhoResposta` herdam o schema de criação, e o validador **roda também na leitura**. Um validador mais rígido derruba com 500 a listagem de qualquer CPF já gravado. | Medido | Validador só nos schemas de criação |
+| A-04 | Perfil `veterinario` | Valor novo de enum no Postgres não pode ser usado na mesma transação que o criou (*unsafe use of new value*), e não existe `DROP VALUE`. | Medido | Migration isolada, sem uso do valor na mesma transação; downgrade documentado como manual |
+| A-05 | Auditoria (RF22) | A coluna JSON não aceita `date` nem `Decimal`: a gravação falha com `TypeError`. Enum passa. | Medido | Serializar com `model_dump(mode="json")` antes de gravar |
+| A-06 | Tudo que depende de "hoje" ou "este mês" | O container roda em UTC. No Windows, `ZoneInfo("America/Sao_Paulo")` falha sem o pacote `tzdata`. No navegador, `toISOString()` é UTC (DEF-09). | Medido | Datas e meses calculados no backend, em `America/Sao_Paulo`; `tzdata` nas dependências |
+| A-07 | Lock de dependências | O `uvloop` do `uvicorn[standard]` só é instalado fora do Windows. Um lock gerado na máquina de alguém da equipe sai sem ele, e com o Python 3.13 local contra o 3.12 do CI e do Docker. | Medido (metadados do PyPI) | Lock universal (`uv pip compile --universal`) ou gerado dentro do container |
+| A-08 | Apadrinhamento | `UNIQUE (padrinho_id, pet_id)` impede reapadrinhar o mesmo pet depois de encerrar. Não há coluna de valor. A tabela está vazia em todos os ambientes, porque nunca teve rota. | Medido | Unicidade parcial `WHERE ativo` e coluna de valor, enquanto a tabela ainda está vazia |
+| A-09 | Qualquer `DELETE` futuro | `Pet` declara `cascade="all, delete-orphan"` nos processos e apadrinhamentos; apadrinhamento cai em cascata com o padrinho e a doação perde o padrinho (`SET NULL`). Um `DELETE` apagaria histórico de adoção e de prestação de contas. | Lido no código | Sem exclusão física de pet, padrinho, doação, gasto ou registro clínico: inativação e estorno |
+| A-10 | Alertas de vacina | Uma aplicação antiga com "próxima dose" no passado apareceria como vencida para sempre, mesmo com a dose seguinte já aplicada. Nome de vacina em texto livre separa "V10" de "v10". | Projeto | Status pela **última** aplicação de cada vacina; catálogo de vacinas |
+| A-11 | Portal público | `DoacaoResposta` traz `doador_nome` e `padrinho_id`. Reaproveitar os schemas internos no portal expõe dado pessoal. | Projeto | Schemas públicos próprios, só com agregados |
+| A-12 | Próxima atualização do Starlette | `HTTP_422_UNPROCESSABLE_ENTITY` está deprecado (aviso em todo `pytest`). Quando for removido, a importação quebra — o mesmo caso do `greenlet`. | Medido | Trocar por `HTTP_422_UNPROCESSABLE_CONTENT` |
+
+### 2.4 Riscos de projeto
+
+| Risco | Nível | Mitigação |
+|---|---|---|
+| Capacidade do frontend: estreia no papel e quase toda a evolução tem tela nova | **Alto** | Par com quem fez o frontend no N1 nas telas mais pesadas (fase 3) |
+| Revisão obrigatória virar gargalo | Médio | Checks do CI obrigatórios e pares de revisão definidos na fase 0 |
+| Migrations em paralelo gerando duas "cabeças" no Alembic | Médio | Só o backend cria migration, em sequência; o CI já falha em `alembic upgrade head` com duas cabeças |
+| `frontend/src/api/tipos.ts` escrito à mão, fora de sincronia com a API | Médio | Mudou schema da API, atualiza `tipos.ts` no mesmo PR |
+| Runner `ubuntu-latest` migra para o Ubuntu 26 em 19/10 | Baixo | Fixar `ubuntu-24.04` na fase 0 |
+
+---
+
+## 3. Decisões
+
+| # | Decisão | Recomendação | Situação |
+|---|---|---|---|
+| D1 | RN crítica: texto literal ou caixa de confirmação | **Literal** — pet em tratamento não finaliza adoção, sem exceção. Confirmar com o professor, porque a equipe original pode ter combinado outra leitura. | **Aplicada** em 08/10 ([#13](https://github.com/mendoncaluucas/PetMeet/pull/13)), sem confirmação do professor |
+| D2 | Veterinário: perfil no painel ou portal separado | **Perfil no painel.** O controle de acesso por perfil já existe; um portal separado seria outro sistema, com outro login e outro deploy. | **Aplicada** ([#14](https://github.com/mendoncaluucas/PetMeet/pull/14)) |
+| D3 | Alertas de vacina: painel ou e-mail | **Painel obrigatório** (vencidas e vencendo em 30 dias). E-mail diário como extra. | **Aplicada** no painel ([#17](https://github.com/mendoncaluucas/PetMeet/pull/17)); o e-mail não foi feito |
+| D4 | Prestação de contas: página pública ou área do padrinho com login | **Pública, com agregados.** Sem login externo e sem dado pessoal. "Automatizado" = gerado a partir dos dados, sem montagem manual. | **Aplicada** ([#21](https://github.com/mendoncaluucas/PetMeet/pull/21)) |
+| D5 | Portal do adotante | **Fora do N2.** Entra só se a fase 3 fechar antes do prazo. | **Aplicada**: ficou fora |
+| D6 | Alertas para pet já adotado | **Fora dos alertas** da ONG: a responsabilidade passa ao adotante. | **Aplicada** ([#17](https://github.com/mendoncaluucas/PetMeet/pull/17)) |
+
+---
+
+## 4. Plano por fase
+
+O backend começa a fase seguinte enquanto o frontend fecha a anterior. Nenhuma história entra em desenvolvimento sem os critérios de aceite escritos (DoR do acordo).
+
+### Fase 0 — Fundação · 25/09 a 30/09
+
+| # | Entrega | Responsável | Referência |
+|---|---|---|---|
+| 0.1 | Checks do CI obrigatórios na `main` e na `develop` (`Backend`, `Frontend`, `Docker`) | Vinicius | — |
+| 0.2 | Convidar os integrantes que faltam; todos aceitarem | Lucas | — |
+| 0.3 | Ligar issues; rótulos `bug`, `débito técnico`, `evolução`; registrar DEF-02 a DEF-13 com resultado esperado e obtido | Vinicius e Kaua | Acordo 2.1 e 4.2 |
+| 0.4 | **Migration `0002` de reconciliação e `alembic check` no CI** — bloqueia qualquer migration nova | Lucas | A-01 |
+| 0.5 | Lock universal de dependências, `tzdata`, troca da constante deprecada do Starlette | Vinicius e Lucas | A-06, A-07, A-12 |
+| 0.6 | `.gitattributes` (o índice já está 100% em LF: entra sem diff em massa) e runner `ubuntu-24.04` | Vinicius | — |
+| 0.7 | Acordo preenchido com as regras reais do PetMeet (seções 2 a 6) | Willian e equipe | — |
+| 0.8 | Fechar D1 a D6 | Willian | Seção 3 |
+
+### Fase 1 — Correções · 01/10 a 07/10
+
+Toda correção entra com um teste que falha antes e passa depois.
+
+| # | Entrega | Responsável | Referência |
+|---|---|---|---|
+| 1.1 | Situação de adoção deixa de ser editável à mão; índice único parcial para um só processo ativo por pet (a migration confere duplicados antes); cancelar só devolve o pet a "disponível" se ele estava "em processo" | Lucas e Henrique | DEF-03, DEF-04, DEF-05 |
+| 1.2 | Concorrência cancelar × finalizar, com teste de duas conexões reais. Depois do teste verde, quebrar a função de 64 linhas. | Lucas | DEF-06, A-02 |
+| 1.3 | RN crítica conforme D1: o teste existente é invertido, não apagado; a coluna `acompanhamento_medico_em_dia` fica, por histórico | Lucas e Henrique | DEF-02 |
+| 1.4 | CPF com dígitos verificadores, aceitando pontuação; conflito de gravação vira 409 (CPF e e-mail) | Lucas e Henrique | DEF-08, DEF-12, A-03 |
+| 1.5 | Senha limitada a 72 bytes no cadastro; login com senha maior responde 401 | Lucas | DEF-07 |
+| 1.6 | Excluir adotante sem processo; inativar o que tem | Lucas e Henrique | DEF-13, A-09 |
+| 1.7 | Tela de processos explica o fluxo *em análise → aprovado → finalizado* | Henrique | Teste manual de 24/09 |
+| 1.8 | `GET /auth/me`; painel mostra só o que o perfil pode fazer (a autorização continua lendo o perfil do banco a cada requisição) | Lucas e Henrique | Pré-requisito da fase 2 |
+| 1.9 | Endpoint de resumo com totais calculados no banco e mês em `America/Sao_Paulo`; o Painel passa a usá-lo | Lucas e Henrique | DEF-09, DEF-10, A-06 |
+| 1.10 | Seed idempotente | Lucas | DEF-11 |
+| 1.11 | `REQUISITOS.md` com as regras herdadas e as novas; `DER.md`, `DEBITOS-TECNICOS.md` e `HANDOFF.md` corrigidos | Nicholas | — |
+| 1.12 | Roteiro de testes de regressão da fase | Kaua | Acordo 4.1 |
+
+### Fase 2 — Evolução 1: ficha clínica e cartão de vacinação · 08/10 a 16/10
+
+| # | Entrega | Responsável | Referência |
+|---|---|---|---|
+| 2.1 | Histórias e critérios de aceite, prontos até 07/10 | Nicholas | DoR |
+| 2.2 | Perfil `veterinario` em migration isolada; acesso decidido rota a rota; veterinário no seed | Lucas | A-04 |
+| 2.3 | Sair de "em tratamento médico" só pelo veterinário (colocar continua com a equipe, que faz a triagem); cada mudança de saúde gravada na auditoria | Lucas | A-05 |
+| 2.4 | Ficha clínica: atendimentos com anamnese, diagnóstico e conduta | Lucas e Henrique | A-09 |
+| 2.5 | Cartão de vacinação: catálogo de vacinas, aplicações e próxima dose; status *em dia / vencendo / vencida* pela última aplicação; "hoje" em `America/Sao_Paulo` | Lucas e Henrique | A-06, A-10 |
+| 2.6 | Alertas de vencimento no painel inicial | Henrique | D3, D6 |
+| 2.7 | *(Extra)* Aviso diário por e-mail | Vinicius | D3 |
+
+### Fase 3 — Evolução 2: prestação de contas · 15/10 a 23/10
+
+| # | Entrega | Responsável | Referência |
+|---|---|---|---|
+| 3.1 | Histórias e critérios de aceite, prontos até 14/10 | Nicholas | DoR |
+| 3.2 | Apadrinhamento: vínculo padrinho↔pet com valor combinado e unicidade só entre ativos | Lucas e Henrique | A-08 |
+| 3.3 | Gastos da ONG: valor, data, categoria, pet opcional. Sem exclusão — correção por estorno, com auditoria. | Lucas e Henrique | A-09 |
+| 3.4 | Doações recorrentes: esperado de cada padrinho × recebido, mês a mês | Lucas | A-06 |
+| 3.5 | Portal público: arrecadado × gasto por mês e por pet, calculado no banco, com schemas públicos próprios e rota fora do login | Henrique e Willian | A-11, D4 |
+
+### Fase 4 — Fechamento · 24/10 a 29/10
+
+| # | Entrega | Responsável |
+|---|---|---|
+| 4.1 | Roteiro de testes completo, rodado sobre a versão final | Kaua |
+| 4.2 | Verificação a partir de um clone limpo, seguindo só o README | Vinicius |
+| 4.3 | Release `v2.0` com notas | Vinicius e Lucas |
+| 4.4 | Handoff e matriz de papéis | Nicholas |
+| 4.5 | Pitch | Willian |
+
+Se a fase 3 fechar em 23/10, a semana seguinte vira margem para o extra 2.7 ou para o portal do adotante (D5).
+
+---
+
+## 5. Regras que valem o N2 inteiro
+
+- Nenhuma migration nova sem `alembic check` limpo. O `--autogenerate` é revisado linha a linha antes do commit.
+- Toda correção de defeito entra com um teste que falha antes da correção.
+- "Hoje" e "este mês" são calculados no backend, em `America/Sao_Paulo`.
+- Dinheiro é `Decimal` no backend e somado no banco; o frontend só formata.
+- Sem exclusão física de pet, padrinho, doação, gasto ou registro clínico.
+- Mudou um schema da API, `frontend/src/api/tipos.ts` muda no mesmo PR.
+- Nenhum job do CI é renomeado sem atualizar a proteção das branches — o nome do job é o nome do check exigido.
+- Merge só com o PR aprovado por outro integrante (DoD do acordo).
+
+---
+
+## 6. Evidência por papel
+
+| Papel | Integrante | O que fica no repositório |
+|---|---|---|
+| Product Owner | Willian Squena | Acordo preenchido, decisões D1–D6 registradas, aceite dos PRs de evolução, pitch |
+| Engenheiro de Requisitos | Nicholas Scoz dos Santos | `REQUISITOS.md`, documentos corrigidos, histórias das duas evoluções, handoff |
+| Quality Assurance | Kaua Lucindo | Issues de defeito, roteiros de teste, revisão dos testes de regressão |
+| Desenvolvedor Frontend | Henrique Cordeiro de Oliveira | Telas novas e corrigidas |
+| Desenvolvedor Backend | Lucas Rogério Mendonça | API, migrations, testes |
+| DevOps | Vinicius Steuernagel | Checks obrigatórios, lock, runner, issues e rótulos, release, verificação do zero |
+
+---
+
+## 7. Acompanhamento
+
+A execução é acompanhada pelos pull requests e pelas issues. Este documento é atualizado no fim de cada fase: o que entrou, o que escorregou e por quê.
+
+### Fim da fase 1 — 08/10/2026
+
+**Entrou na `develop`** — 11 PRs; testes de 20 para **78**; migrations `0002` a `0004`.
+
+| Item | PR | Item | PR |
+|---|---|---|---|
+| 0.1 Checks do CI obrigatórios | configuração do repositório, 25/09 | 1.5 Senha acima de 72 bytes | [#5](https://github.com/mendoncaluucas/PetMeet/pull/5) |
+| 0.4 Reconciliação da migration | [#3](https://github.com/mendoncaluucas/PetMeet/pull/3) | 1.6 Excluir ou inativar adotante | [#9](https://github.com/mendoncaluucas/PetMeet/pull/9) |
+| 1.1 Situação de adoção só pelo processo | [#8](https://github.com/mendoncaluucas/PetMeet/pull/8) | 1.8 Perfil do usuário no painel | [#10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| 1.2 Cancelar × finalizar ao mesmo tempo | [#4](https://github.com/mendoncaluucas/PetMeet/pull/4) | 1.9 Resumo do Painel no banco | [#10](https://github.com/mendoncaluucas/PetMeet/pull/10) |
+| 1.4 CPF e cadastro duplicado | [#7](https://github.com/mendoncaluucas/PetMeet/pull/7) | 1.10 Seed idempotente | [#6](https://github.com/mendoncaluucas/PetMeet/pull/6) |
+
+Os itens 0.5 (lock de dependências, `tzdata`, constante do Starlette) e 0.6 (`.gitattributes`, runner `ubuntu-24.04`) entram no PR que traz esta atualização.
+
+**Achados na verificação antes do merge** — defeitos que as próprias mudanças criariam e que não chegaram à `develop`:
+
+| PR | Achado | Como apareceu |
+|---|---|---|
+| [#8](https://github.com/mendoncaluucas/PetMeet/pull/8) | Sem a rota manual, um pet "em processo" sem processo ativo ficaria preso para sempre — a migration `0003` passou a alinhar esses dados | pet montado no estado antigo, tentativa de abrir processo |
+| [#8](https://github.com/mendoncaluucas/PetMeet/pull/8) | O auxiliar de duplicidade respondia qualquer erro de integridade como "já existe" | chave externa quebrada de propósito |
+| [#9](https://github.com/mendoncaluucas/PetMeet/pull/9) | Editar ou inativar um adotante enquanto outra pessoa o exclui respondia 500 | estresse: 18 de 20 rodadas |
+| [#10](https://github.com/mendoncaluucas/PetMeet/pull/10) | Com o `/auth/me` falhando, a tela Equipe ficava carregando para sempre | `fetch` interceptado no navegador |
+| [#11](https://github.com/mendoncaluucas/PetMeet/pull/11) | O contrato OpenAPI anunciava como "aceita nulo" campos que a API recusa | leitura do `/openapi.json` |
+
+**O que escorregou e por quê**
+
+| Item | Situação | Motivo |
+|---|---|---|
+| 1.3 Regra crítica | não iniciado | aguarda a decisão D1 do professor |
+| 0.2 Equipe no repositório | parcial | Henrique entrou; convites de Kaua e Willian pendentes desde 24/09; Vinicius e Nicholas não convidados |
+| 0.3 Issues e registro dos defeitos | não iniciado | issues continuam desligadas; os defeitos ficaram registrados nesta seção 2.2 e nos PRs |
+| 0.7 e 0.8 Acordo e decisões D1–D6 | sem registro no repositório | dependem do PO e do professor |
+| 1.7, 1.11, 1.12 | não iniciados | tela de processos (Frontend), requisitos e documentos herdados (Requisitos), roteiro de regressão (QA) |
+
+**Processo.** Os 11 PRs entraram por bypass de administrador, sem revisão de outro integrante — o DoD do acordo pede aprovação, e com os convites pendentes não havia quem aprovasse. Os checks obrigatórios do CI funcionaram em todos.
+
+**Para a fase 2**
+- As histórias da ficha clínica e da vacinação venciam em 07/10 (item 2.1) e não chegaram: definir quem escreve os critérios de aceite antes de começar.
+- O resumo do Painel exige perfil admin ou voluntário, porque traz nomes de adotantes. O perfil veterinário receberia **403 na página inicial** — decidir entre um resumo sem nomes ou outra página inicial para ele.
+- Quem atualizar a `develop` reinstala as dependências pelo lock: `pip install -r requirements-dev.lock` e `pip install --no-deps -e .`.
+
+### Fim da fase 2 — 15/10/2026
+
+**Entrou na `develop`** — 4 PRs, contando este; testes de 80 para **186**; migrations `0005` a `0007`. A evolução 1 do enunciado, o cartão de vacinação digital com alertas de vencimento, está completa.
+
+| Item | PR | Histórias |
+|---|---|---|
+| 2.1 Histórias e critérios de aceite | [#14](https://github.com/mendoncaluucas/PetMeet/pull/14), em [`HISTORIAS-FASE-2.md`](HISTORIAS-FASE-2.md) | H1–H6 |
+| 2.2 Perfil veterinário · 2.3 Alta só pelo veterinário, com auditoria | [#14](https://github.com/mendoncaluucas/PetMeet/pull/14) | H1, H2 |
+| 2.4 Ficha clínica | [#15](https://github.com/mendoncaluucas/PetMeet/pull/15) | H3 |
+| 2.5 Catálogo e cartão de vacinação | [#16](https://github.com/mendoncaluucas/PetMeet/pull/16) | H4, H5 |
+| 2.6 Alertas de vencimento nas páginas iniciais | o PR que traz esta atualização | H6 |
+
+**Achados na verificação antes do merge** — defeitos que as próprias mudanças criariam e que foram corrigidos antes de entrar:
+
+| PR | Achado | Como apareceu |
+|---|---|---|
+| #14 | Um voluntário tirava o pet do tratamento se alguém registrasse o tratamento no mesmo instante | teste com duas conexões |
+| #14 | Doença só com espaços passava como diagnóstico | requisição real |
+| #14 | A migration do perfil podia faltar sem nenhum teste avisar: os testes montam o banco pelos modelos | migration retirada de propósito; o seed no CI pegou |
+| #15 | Desfazer a migration apagava o histórico clínico sem avisar | banco temporário |
+| #16 | O autogenerate recriaria o tipo `especie_pet` e a migration quebraria | leitura da migration gerada |
+| #16 | A unicidade do nome da vacina dependia da collation do banco; acento em NFD passava como vacina nova | banco com collation `C` criado no teste |
+| este | O cartão e a ficha clínica tinham a mesma `key` no React — entrou no #16 e é corrigido aqui | console do navegador |
+
+**O que escorregou e por quê**
+
+| Item | Situação | Motivo |
+|---|---|---|
+| 2.1 Revisão das histórias pelo Nicholas | pendente | as histórias foram escritas pelo backend para destravar a fase |
+| 2.7 *(Extra)* Aviso diário por e-mail | não iniciado | é extra; fica para a margem da fase 4 |
+| DEF-15 Id acima do inteiro do Postgres → 500 | corrigido logo depois da fase | defeito da `v1.0`, achado nesta fase; corrigido em PR próprio, antes da fase 3 |
+| 1.7, 1.11, 1.12 | sem mudança | dependem de Frontend, Requisitos e QA |
+
+**Decisão tomada pelo padrão do documento:** uma vacina desativada no catálogo continua nos alertas (H4.4). Se a ONG desativar uma vacina que algum pet tem vencida, o pet fica vencido até a vacina ser reativada para registrar a dose nova. Rever se isso incomodar no uso.
+
+### Fim da fase 3 — 26/10/2026
+
+**Entrou na `develop`** — 5 PRs, contando o do DEF-15; testes de 186 para **300**; migrations `0008` e `0009`. A evolução 2 do enunciado, o portal de prestação de contas automatizado, está completa. Com ela, as duas evoluções exigidas no N2 estão na `develop`.
+
+| Item | PR | Histórias |
+|---|---|---|
+| DEF-15 Número fora do intervalo do banco | [#18](https://github.com/mendoncaluucas/PetMeet/pull/18) | — |
+| 3.1 Histórias e critérios de aceite | [#19](https://github.com/mendoncaluucas/PetMeet/pull/19), em [`HISTORIAS-FASE-3.md`](HISTORIAS-FASE-3.md) | H7–H11 |
+| 3.2 Apadrinhamento · doação com destino | [#19](https://github.com/mendoncaluucas/PetMeet/pull/19) | H7, H8 |
+| 3.3 Gastos e estornos | [#20](https://github.com/mendoncaluucas/PetMeet/pull/20) | H9 |
+| 3.5 Portal público | [#21](https://github.com/mendoncaluucas/PetMeet/pull/21) | H11 |
+| 3.4 Esperado × recebido | [#22](https://github.com/mendoncaluucas/PetMeet/pull/22) | H10 |
+
+**Achados na verificação antes do merge** — defeitos que as próprias mudanças criariam e que foram corrigidos antes de entrar:
+
+| PR | Achado | Como apareceu |
+|---|---|---|
+| #18 | Doação com 3 casas era gravada arredondada (R$ 10,123 → 10,12) | verificação do próprio DEF-15 |
+| #19 | Um apadrinhamento criado no mesmo instante da finalização da adoção ficava ativo num pet adotado | teste com duas conexões, nas duas ordens |
+| #20 | O Painel contava o estorno como mais uma doação recebida | revisão de tudo que soma doações |
+| #20 | Doação com data futura era aceita desde a `v1.0` e poderia ser estornada antes de "acontecer" | revisão de tudo que soma doações |
+| #20 | O resumo do padrinho somava a doação estornada | revisão de tudo que soma doações |
+| #21 | O mês dos totais dependia do fuso da sessão do banco: o Postgres convertia a data para `timestamptz` | `EXPLAIN` e o banco em fusos extremos |
+| #21 | Doação ou gasto com data futura de um pet entraria na tabela por pet; o filtro existia, mas nenhum teste o cobria | prova reversa |
+| #21 | O destaque dizia "Saldo" ao lado de números de 12 meses, mas soma o histórico inteiro | leitura da página |
+| #22 | Com 2 mil padrinhos, a página levava de 1,2 a 4,3 s: uma subconsulta por célula da grade. Reescrita com somas agregadas, de 135 a 170 ms | banco descartável com 200 mil doações |
+| #22 | O texto para leitor de tela das células escapava da rolagem da tabela e alargava a página | largura medida no navegador |
+
+**O que escorregou e por quê**
+
+| Item | Situação | Motivo |
+|---|---|---|
+| Alvo de 23/10 | a fase fechou em 26/10 | três dias depois do alvo; o PR do portal (H11) passou à frente da H10, para garantir a entrega exigida antes do prazo |
+| 3.1 Revisão das histórias pelo Nicholas | pendente | as histórias foram escritas pelo backend para destravar a fase |
+| 2.7 *(Extra)* Aviso diário por e-mail | não iniciado | sem margem depois do atraso da fase 3 |
+| 0.2, 0.3, 1.7, 1.11, 1.12 | sem mudança | convites, issues, tela de processos, requisitos e roteiro de regressão |
+
+**Duas situações a mais na H10**, além das previstas: mês sem apadrinhamento ativo aparece como *sem compromisso*, e o mês corrente já pago aparece como *em dia*. Estão anotadas em [`HISTORIAS-FASE-3.md`](HISTORIAS-FASE-3.md).
+
+**Para a fase 4**
+- O README mandava subir o Docker Compose sem `--build`. Quem atualizasse o código ficava com a imagem antiga e a API em loop (`Can't locate revision`), o que aconteceu na máquina do backend depois da `0009`. Corrigido no PR que traz esta atualização, junto com o roteiro de testes, as notas da `v2.0` e o handoff.

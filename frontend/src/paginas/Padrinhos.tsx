@@ -3,7 +3,9 @@ import type { FormEvent } from 'react'
 import { ErroApi } from '../api/cliente'
 import { doacoes as apiDoacoes, padrinhos as api } from '../api/recursos'
 import type { Padrinho } from '../api/tipos'
+import { ApadrinhamentosDoPadrinho } from '../componentes/ApadrinhamentosDoPadrinho'
 import { Campo } from '../componentes/Campos'
+import { SituacaoDoLancamento } from '../componentes/Estorno'
 import {
   Aviso,
   CabecalhoPagina,
@@ -14,7 +16,13 @@ import {
   Selo,
   Sobreposicao,
 } from '../componentes/Interface'
-import { TIPOS_DOACAO, formatarData, formatarMoeda, formatarTelefone } from '../util/formato'
+import {
+  TIPOS_DOACAO,
+  cpfValido,
+  formatarData,
+  formatarMoeda,
+  formatarTelefone,
+} from '../util/formato'
 import { useRequisicao } from '../util/useRequisicao'
 
 const TAMANHO_PAGINA = 20
@@ -23,6 +31,7 @@ type Painel =
   | { tipo: 'cadastro' }
   | { tipo: 'edicao'; padrinho: Padrinho }
   | { tipo: 'doacoes'; padrinho: Padrinho }
+  | { tipo: 'apadrinhamentos'; padrinho: Padrinho }
 
 export function Padrinhos() {
   const [pagina, setPagina] = useState(1)
@@ -44,7 +53,7 @@ export function Padrinhos() {
     <>
       <CabecalhoPagina
         titulo="Padrinhos"
-        descricao="Quem sustenta o abrigo com contribuições pontuais ou recorrentes."
+        descricao="Quem sustenta o abrigo. Um padrinho combina um valor por mês para cada pet que apadrinha."
         acao={
           <button type="button" className="botao" onClick={() => setPainel({ tipo: 'cadastro' })}>
             Cadastrar padrinho
@@ -102,6 +111,14 @@ export function Padrinhos() {
                             type="button"
                             className="botao"
                             data-tipo="texto"
+                            onClick={() => setPainel({ tipo: 'apadrinhamentos', padrinho: pessoa })}
+                          >
+                            Apadrinhamentos
+                          </button>
+                          <button
+                            type="button"
+                            className="botao"
+                            data-tipo="texto"
                             onClick={() => setPainel({ tipo: 'doacoes', padrinho: pessoa })}
                           >
                             Doações
@@ -150,6 +167,10 @@ export function Padrinhos() {
       {painel?.tipo === 'doacoes' ? (
         <DoacoesDoPadrinho padrinho={painel.padrinho} aoFechar={() => setPainel(null)} />
       ) : null}
+
+      {painel?.tipo === 'apadrinhamentos' ? (
+        <ApadrinhamentosDoPadrinho padrinho={painel.padrinho} aoFechar={() => setPainel(null)} />
+      ) : null}
     </>
   )
 }
@@ -179,8 +200,8 @@ function FormularioPadrinho({ padrinho, aoFechar, aoSalvar }: FormularioProps) {
     setErro(null)
     setErrosCampo({})
 
-    if (!editando && cpf.length !== 11) {
-      setErrosCampo({ cpf: 'O CPF precisa ter 11 dígitos, só números.' })
+    if (!editando && !cpfValido(cpf)) {
+      setErrosCampo({ cpf: 'CPF inválido: confira os dígitos.' })
       return
     }
 
@@ -227,11 +248,11 @@ function FormularioPadrinho({ padrinho, aoFechar, aoSalvar }: FormularioProps) {
             rotulo="CPF"
             required
             inputMode="numeric"
-            maxLength={11}
+            maxLength={14}
             value={cpf}
             erro={errosCampo.cpf}
-            dica="Só números, sem pontos nem traço."
-            onChange={(evento) => setCpf(evento.target.value.replace(/\D/g, ''))}
+            dica="Pode digitar ou colar com pontos e traço."
+            onChange={(evento) => setCpf(evento.target.value.replace(/\D/g, '').slice(0, 11))}
           />
         )}
 
@@ -276,7 +297,12 @@ function DoacoesDoPadrinho({ padrinho, aoFechar }: { padrinho: Padrinho; aoFecha
     [padrinho.id],
   )
 
+  // Retrato liquido do padrinho: a soma ja desconta os estornos (negativos), e a contagem
+  // e das doacoes que valem -- sem os estornos e sem as doacoes que foram estornadas.
   const total = dados?.itens.reduce((soma, doacao) => soma + Number(doacao.valor), 0) ?? 0
+  const quantidade =
+    dados?.itens.filter((doacao) => doacao.estorno_de_id === null && doacao.estornado_em === null)
+      .length ?? 0
 
   return (
     <Sobreposicao titulo={`Doações de ${padrinho.nome}`} aoFechar={aoFechar}>
@@ -291,7 +317,7 @@ function DoacoesDoPadrinho({ padrinho, aoFechar }: { padrinho: Padrinho; aoFecha
             <>
               <p>
                 <strong className="numero-tabular">{formatarMoeda(total)}</strong> em{' '}
-                {dados.total === 1 ? '1 doação' : `${dados.total} doações`}.
+                {quantidade === 1 ? '1 doação' : `${quantidade} doações`}.
               </p>
               <div className="tabela-envolucro">
                 <table className="tabela">
@@ -310,6 +336,7 @@ function DoacoesDoPadrinho({ padrinho, aoFechar }: { padrinho: Padrinho; aoFecha
                           <Selo tom={doacao.tipo === 'recorrente' ? 'jade' : 'neutro'}>
                             {TIPOS_DOACAO[doacao.tipo]}
                           </Selo>
+                          <SituacaoDoLancamento lancamento={doacao} />
                         </td>
                         <td className="numero">{formatarMoeda(doacao.valor)}</td>
                       </tr>

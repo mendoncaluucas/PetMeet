@@ -1,9 +1,16 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ErroApi } from '../api/cliente'
-import { doacoes as api, padrinhos as apiPadrinhos } from '../api/recursos'
+import {
+  apadrinhamentos,
+  doacoes as api,
+  padrinhos as apiPadrinhos,
+  pets as apiPets,
+} from '../api/recursos'
 import type { FrequenciaContribuicao, Padrinho } from '../api/tipos'
+import { useAuth } from '../auth/ContextoAuth'
 import { Campo, CampoSelecao, opcoesDe } from '../componentes/Campos'
+import { EstornarLancamento, SituacaoDoLancamento } from '../componentes/Estorno'
 import {
   Aviso,
   CabecalhoPagina,
@@ -18,11 +25,16 @@ import { useRequisicao } from '../util/useRequisicao'
 
 const TAMANHO_PAGINA = 20
 
+const VALOR_MAXIMO = 99999999.99
+
 export function Doacoes() {
+  // Estornar mexe em dinheiro ja publicado: so o admin (D14).
+  const { ehAdmin } = useAuth()
   const [pagina, setPagina] = useState(1)
   const [padrinhoId, setPadrinhoId] = useState('')
   const [registrando, setRegistrando] = useState(false)
   const [mensagem, setMensagem] = useState<string | null>(null)
+  const [falha, setFalha] = useState<string | null>(null)
 
   const { dados, carregando, erro, recarregar } = useRequisicao(
     () =>
@@ -58,6 +70,7 @@ export function Doacoes() {
       />
 
       {mensagem ? <Aviso tom="sucesso">{mensagem}</Aviso> : null}
+      {falha ? <Aviso>{falha}</Aviso> : null}
 
       <div className="filtros">
         <CampoSelecao
@@ -105,6 +118,11 @@ export function Doacoes() {
                   <th>Quem doou</th>
                   <th>Tipo</th>
                   <th className="numero">Valor</th>
+                  {ehAdmin ? (
+                    <th>
+                      <span className="so-leitor-tela">Ações</span>
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -120,6 +138,7 @@ export function Doacoes() {
                           doador avulso
                         </span>
                       )}
+                      <SituacaoDoLancamento lancamento={doacao} />
                     </td>
                     <td>
                       <Selo tom={doacao.tipo === 'recorrente' ? 'jade' : 'neutro'}>
@@ -127,6 +146,23 @@ export function Doacoes() {
                       </Selo>
                     </td>
                     <td className="numero">{formatarMoeda(doacao.valor)}</td>
+                    {ehAdmin ? (
+                      <td>
+                        <EstornarLancamento
+                          lancamento={doacao}
+                          estornar={(motivo) => api.estornar(doacao.id, motivo)}
+                          aoEstornar={() => {
+                            setFalha(null)
+                            setMensagem('Doação estornada. O estorno entrou com a data de hoje.')
+                            recarregar()
+                          }}
+                          aoFalhar={(texto) => {
+                            setMensagem(null)
+                            setFalha(texto)
+                          }}
+                        />
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -175,6 +211,25 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
   const [valor, setValor] = useState('')
   const [data, setData] = useState(dataDeHoje())
   const [tipo, setTipo] = useState<FrequenciaContribuicao>('pontual')
+  // Destino opcional (H8): vazio e doacao geral da ONG.
+  const [petId, setPetId] = useState('')
+  const [petEscolhido, setPetEscolhido] = useState(false)
+  const listaDePets = useRequisicao(() => apiPets.listar({ tamanho_pagina: 100 }), [])
+  // Troca rapida de padrinho: so a resposta do padrinho escolhido por ultimo vale.
+  const padrinhoDaSugestao = useRef('')
+
+  async function sugerirPet(novoPadrinhoId: string) {
+    padrinhoDaSugestao.current = novoPadrinhoId
+    if (!novoPadrinhoId || petEscolhido) return
+    try {
+      const ativos = await apadrinhamentos.listar({ padrinho_id: Number(novoPadrinhoId) })
+      if (padrinhoDaSugestao.current !== novoPadrinhoId) return
+      // Com um pet so, e quase certo que a doacao e para ele; com mais, a pessoa escolhe.
+      setPetId(ativos.total === 1 ? String(ativos.itens[0].pet_id) : '')
+    } catch {
+      // Sugestao e conveniencia: se falhar, o campo fica para a pessoa escolher.
+    }
+  }
 
   const [erro, setErro] = useState<string | null>(null)
   const [errosCampo, setErrosCampo] = useState<Record<string, string>>({})
@@ -190,11 +245,17 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
       setErrosCampo({ valor: 'O valor precisa ser maior que zero.' })
       return
     }
+    // O banco guarda ate 99.999.999,99 (Numeric 10,2); a API recusa acima disso (DEF-15).
+    if (numero > VALOR_MAXIMO) {
+      setErrosCampo({ valor: 'O valor máximo é R$ 99.999.999,99.' })
+      return
+    }
 
     setSalvando(true)
     try {
       await api.criar({
         padrinho_id: origem === 'padrinho' ? Number(padrinhoId) : null,
+        pet_id: petId ? Number(petId) : null,
         doador_nome: origem === 'avulso' ? doadorNome.trim() : null,
         valor: numero,
         data,
@@ -234,7 +295,10 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
             required
             value={padrinhoId}
             erro={errosCampo.padrinho_id}
-            onChange={(evento) => setPadrinhoId(evento.target.value)}
+            onChange={(evento) => {
+              setPadrinhoId(evento.target.value)
+              void sugerirPet(evento.target.value)
+            }}
           >
             <option value="">Escolha um padrinho</option>
             {padrinhos.map((pessoa) => (
@@ -254,12 +318,31 @@ function RegistrarDoacao({ padrinhos, aoFechar, aoSalvar }: RegistroProps) {
           />
         )}
 
+        <CampoSelecao
+          rotulo="Para qual pet"
+          value={petId}
+          erro={errosCampo.pet_id}
+          dica="Opcional. Sem pet, a doação conta para a ONG como um todo."
+          onChange={(evento) => {
+            setPetEscolhido(true)
+            setPetId(evento.target.value)
+          }}
+        >
+          <option value="">Doação geral da ONG</option>
+          {(listaDePets.dados?.itens ?? []).map((pet) => (
+            <option key={pet.id} value={pet.id}>
+              {pet.nome}
+            </option>
+          ))}
+        </CampoSelecao>
+
         <div className="formulario-duplo">
           <Campo
             rotulo="Valor"
             type="number"
             step="0.01"
             min="0.01"
+            max={VALOR_MAXIMO}
             required
             inputMode="decimal"
             value={valor}

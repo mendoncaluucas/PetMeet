@@ -7,7 +7,21 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import obter_configuracoes
 from app.core.excecoes import registrar_tratamento_erros
 from app.core.logging import configurar_logging
-from app.rotas import adotantes, auth, doacoes, padrinhos, pets, processos_adocao, usuarios
+from app.rotas import (
+    adotantes,
+    apadrinhamentos,
+    atendimentos,
+    auth,
+    doacoes,
+    gastos,
+    padrinhos,
+    painel,
+    pets,
+    processos_adocao,
+    transparencia,
+    usuarios,
+    vacinacao,
+)
 
 configuracoes = obter_configuracoes()
 configurar_logging()
@@ -33,10 +47,16 @@ app.mount("/uploads", StaticFiles(directory=configuracoes.DIRETORIO_UPLOADS), na
 app.include_router(auth.roteador)
 app.include_router(usuarios.roteador)
 app.include_router(pets.roteador)
+app.include_router(atendimentos.roteador)
+app.include_router(vacinacao.roteador)
 app.include_router(adotantes.roteador)
 app.include_router(padrinhos.roteador)
+app.include_router(apadrinhamentos.roteador)
 app.include_router(processos_adocao.roteador)
 app.include_router(doacoes.roteador)
+app.include_router(gastos.roteador)
+app.include_router(painel.roteador)
+app.include_router(transparencia.roteador)
 
 
 @app.get("/saude", tags=["Infra"])

@@ -62,7 +62,11 @@ cliente.
 ## Regra critica: finalizacao de adocao com pet em tratamento medico
 
 Esta é a regra mais sensível do sistema (RN01/RF16), implementada em
-`app/servicos/processo_adocao.py::atualizar_status_processo`:
+`app/servicos/processo_adocao.py::atualizar_status_processo`. O enunciado proíbe
+sem exceção: pet em tratamento médico não tem a adoção finalizada (decisão D1 do
+`PLANO-DE-ACAO-N2.md`). A versão recebida finalizava se alguém confirmasse o
+acompanhamento médico em dia; essa exceção saiu. Aprovar o processo continua
+permitido — só a finalização espera a alta médica.
 
 ```mermaid
 sequenceDiagram
@@ -73,13 +77,7 @@ sequenceDiagram
     C->>S: PATCH /processos-adocao/{id}/status (finalizado)
     S->>B: SELECT pet FOR UPDATE (trava a linha)
     alt pet em tratamento medico
-        alt sem doenca_atual OU sem acompanhamento_medico_em_dia
-            S-->>C: 422 RegraNegocioError
-        else acompanhamento em dia
-            S->>B: UPDATE processo=finalizado, pet=adotado
-            S->>B: COMMIT
-            S-->>C: 200 OK
-        end
+        S-->>C: 422 RegraNegocioError (aguarde a alta medica)
     else pet saudavel/em recuperacao
         S->>B: UPDATE processo=finalizado, pet=adotado
         S->>B: COMMIT

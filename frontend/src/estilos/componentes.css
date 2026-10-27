@@ -258,7 +258,8 @@
 }
 
 .campo[data-invalido='sim'] input,
-.campo[data-invalido='sim'] select {
+.campo[data-invalido='sim'] select,
+.campo[data-invalido='sim'] textarea {
   border-color: var(--alerta);
 }
 
@@ -769,6 +770,14 @@
   border-left-color: var(--ambar-tarja);
 }
 
+.item-atencao[data-vacina='vencida'] {
+  border-left-color: var(--alerta);
+}
+
+.item-atencao[data-vacina='vencendo'] {
+  border-left-color: var(--ambar-tarja);
+}
+
 .item-atencao[data-saude='saudavel'] {
   border-left-color: var(--jade);
 }
@@ -945,4 +954,262 @@
 
 .item-espera[data-saude='saudavel'] {
   border-left-color: var(--jade);
+}
+
+/* --- Ficha clinica (fase 2, H3) ------------------------------------------- */
+
+.lista-atendimentos {
+  display: grid;
+  gap: var(--e-3);
+}
+
+.atendimento {
+  display: grid;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--linha);
+  border-left: 5px solid var(--jade);
+  border-radius: var(--raio);
+}
+
+/* Anulado continua legivel (e historico), mas nao se confunde com um atendimento valido. */
+.atendimento[data-anulado='sim'] {
+  border-left-color: var(--linha-forte);
+  color: var(--texto-fraco);
+}
+
+.atendimento-cabecalho {
+  display: flex;
+  gap: var(--e-3);
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.atendimento-anulacao {
+  margin: 0;
+  font-size: var(--t-sm);
+}
+
+.atendimento-corpo {
+  display: grid;
+  gap: var(--e-2);
+  margin: 0;
+}
+
+.atendimento-corpo dt {
+  font-size: var(--t-sm);
+  color: var(--texto-fraco);
+}
+
+.atendimento-corpo dd {
+  margin: 0;
+  /* Anamnese e conduta vem com quebras de linha digitadas pelo veterinario. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* --- Cartao de vacinacao (fase 2, H5) ------------------------------------ */
+
+.subtitulo-cartao {
+  margin: var(--e-2) 0 0;
+  font-size: var(--t-md);
+}
+
+/* --- Estornos (fase 3, H9) ------------------------------------------------ */
+
+.lancamento-situacao {
+  display: block;
+  margin-top: var(--e-1);
+  font-size: var(--t-sm);
+}
+
+/* O estorno e uma correcao: fica visivel, mas nao compete com os lancamentos comuns. */
+.tabela tr[data-estorno='sim'] td {
+  color: var(--texto-fraco);
+}
+
+/* --- Portal de prestacao de contas (H11) ------------------------------- */
+
+/* Pagina publica, fora da moldura do painel: sem trilho, com a marca no topo. */
+.portal {
+  min-height: 100vh;
+  background: var(--ficha);
+}
+
+.portal-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-4);
+  padding: var(--e-4) var(--e-5);
+  border-bottom: 1px solid var(--linha);
+  background: var(--branco);
+}
+
+.portal-conteudo {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--e-6) var(--e-5) var(--e-8);
+}
+
+.portal-secao {
+  margin-top: var(--e-6);
+}
+
+.portal-topo .login-marca {
+  text-decoration: none;
+}
+
+.portal-escolha {
+  font: inherit;
+  font-size: var(--t-sm);
+  padding: var(--e-1) var(--e-2);
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  background: var(--branco);
+  color: var(--texto);
+}
+
+.portal-nota {
+  margin-top: var(--e-6);
+  font-size: var(--t-sm);
+}
+
+.tabela td[data-negativo='sim'] {
+  color: var(--alerta);
+}
+
+.barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--e-3);
+}
+
+.barra {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--e-4);
+  font-size: var(--t-base);
+}
+
+.barra-rotulo {
+  color: var(--pinho);
+  font-weight: 600;
+}
+
+.barra-trilho {
+  height: 12px;
+  border-radius: var(--raio);
+  background: var(--ficha-fundo);
+  overflow: hidden;
+}
+
+.barra-valor {
+  display: block;
+  height: 100%;
+  background: var(--jade);
+}
+
+.barra-numero {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 7rem;
+}
+
+@media (max-width: 640px) {
+  .portal-topo,
+  .portal-conteudo {
+    padding-left: var(--e-4);
+    padding-right: var(--e-4);
+  }
+
+  .barra {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .barra-trilho {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* --- Contribuicoes: esperado x recebido (H10) -------------------------- */
+
+.legenda-contribuicoes {
+  list-style: none;
+  margin: 0 0 var(--e-4);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-4);
+  font-size: var(--t-sm);
+  color: var(--texto-medio);
+}
+
+.legenda-contribuicoes li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.legenda-contribuicoes li::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: var(--raio);
+  background: var(--fundo-situacao, transparent);
+  border: 1px solid var(--borda-situacao, var(--linha));
+}
+
+.tabela-contribuicoes [data-situacao='em_dia'],
+.legenda-contribuicoes [data-situacao='em_dia'] {
+  --fundo-situacao: var(--jade-fraco);
+  --borda-situacao: var(--jade);
+}
+
+.tabela-contribuicoes [data-situacao='parcial'],
+.legenda-contribuicoes [data-situacao='parcial'] {
+  --fundo-situacao: var(--ambar-fraco);
+  --borda-situacao: var(--ambar-tarja);
+}
+
+.tabela-contribuicoes [data-situacao='sem_doacao'],
+.legenda-contribuicoes [data-situacao='sem_doacao'] {
+  --fundo-situacao: var(--alerta-fraco);
+  --borda-situacao: var(--alerta);
+}
+
+.tabela-contribuicoes [data-situacao='em_andamento'],
+.legenda-contribuicoes [data-situacao='em_andamento'] {
+  --fundo-situacao: var(--indigo-fraco);
+  --borda-situacao: var(--indigo);
+}
+
+/* relative: o texto para leitor de tela (position: absolute) fica preso na celula. Sem
+   isso ele escapava da rolagem da tabela e alargava a pagina inteira. */
+.tabela-contribuicoes td[data-situacao] {
+  position: relative;
+  background: var(--fundo-situacao, transparent);
+  white-space: nowrap;
+  font-size: var(--t-sm);
+}
+
+.tabela-contribuicoes td[data-situacao] small {
+  display: block;
+  color: var(--texto-fraco);
+  font-size: var(--t-xs);
+}
+
+/* O nome fica visivel enquanto os meses rolam para o lado. */
+.tabela-contribuicoes th:first-child,
+.tabela-contribuicoes td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--branco);
+  min-width: 11rem;
 }

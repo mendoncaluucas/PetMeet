@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 # Cancela execucoes antigas do mesmo branch/PR quando chega um commit novo
@@ -19,7 +19,9 @@ jobs:
   # ---------------------------------------------------------------- CI: API
   backend:
     name: Backend (lint + testes)
-    runs-on: ubuntu-latest
+    # Fixo: o ubuntu-latest vira Ubuntu 26 a partir de 19/10/2026 e mudaria o ambiente
+    # do CI sem nenhum commit nosso. Trocar de versao e uma decisao, num PR proprio.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -49,10 +51,25 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            requirements-dev.lock
 
+      # Versoes travadas no lock: o CI nao quebra sozinho quando sai versao nova de uma
+      # biblioteca (foi o que aconteceu com o greenlet em 24/09).
       - name: Instalar dependencias
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -r requirements-dev.lock
+          pip install --no-deps -e .
+
+      # Mudou o pyproject.toml sem regenerar o lock? Este passo falha. Os locks atuais
+      # entram como preferencia, entao versao nova publicada nao muda o resultado. O uv
+      # vem do requirements-dev.lock: a mesma versao que a equipe usa para gerar o lock.
+      - name: Conferir se os locks batem com o pyproject
+        run: |
+          uv pip compile pyproject.toml --universal --python-version 3.11 --no-header -q -o requirements.lock
+          uv pip compile pyproject.toml --extra dev --universal --python-version 3.11 --no-header -q -o requirements-dev.lock
+          git diff --exit-code requirements.lock requirements-dev.lock
 
       - name: Ruff
         run: ruff check .
@@ -69,13 +86,25 @@ jobs:
       - name: Aplicar migrations (valida o Alembic)
         run: alembic upgrade head
 
+      - name: Conferir se modelos e migrations batem
+        run: alembic check
+
+      # Os testes montam o banco pelos modelos (create_all), nao pelas migrations. Rodar o
+      # seed aqui grava um usuario de cada perfil no banco que as migrations criaram: um
+      # valor de enum que so existe no modelo quebra neste passo (A-04). Duas vezes para
+      # conferir que o seed nao duplica nada.
+      - name: Popular o banco migrado (seed)
+        run: |
+          python -m scripts.seed
+          python -m scripts.seed
+
       - name: Pytest
         run: pytest -v
 
   # ----------------------------------------------------------- CI: frontend
   frontend:
     name: Frontend (lint + build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -105,7 +134,7 @@ jobs:
   # ------------------------------------------------ CD: imagem Docker da API
   docker:
     name: Docker (build + publicar no GHCR)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [backend, frontend]
     permissions:
       contents: read
@@ -121,8 +150,9 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
+          # latest acompanha a main, nao a branch padrao (que e a develop)
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha
             type=ref,event=pr
 
@@ -146,7 +176,7 @@ jobs:
           exit 1
 
       - name: Login no GHCR
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -154,7 +184,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publicar imagem
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -166,7 +196,7 @@ jobs:
   # ------------------------------------------------ CD: deploy (opcional)
   deploy:
     name: Deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     env:

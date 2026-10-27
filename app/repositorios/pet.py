@@ -19,8 +19,18 @@ async def obter_por_id(sessao: AsyncSession, pet_id: int) -> Pet | None:
 
 
 async def obter_por_id_com_lock(sessao: AsyncSession, pet_id: int) -> Pet | None:
-    """SELECT ... FOR UPDATE: trava a linha do pet durante uma transacao (RNF18)."""
-    resultado = await sessao.execute(select(Pet).where(Pet.id == pet_id).with_for_update())
+    """SELECT ... FOR UPDATE: trava a linha do pet durante uma transacao (RNF18).
+
+    populate_existing garante que o objeto devolvido reflete a linha travada, mesmo
+    que o pet ja estivesse carregado na sessao antes da trava.
+    """
+    consulta = (
+        select(Pet)
+        .where(Pet.id == pet_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    resultado = await sessao.execute(consulta)
     return resultado.scalar_one_or_none()
 
 

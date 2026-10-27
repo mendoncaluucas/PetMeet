@@ -3,6 +3,25 @@
 Painel web da equipe da ONG: fichas dos pets, processos de adoção, adotantes,
 padrinhos e doações. Consome a API FastAPI que está na raiz deste repositório.
 
+Na `v2.0` entraram a ficha clínica, o cartão de vacinação e os alertas de
+vencimento (perfil veterinário), e a prestação de contas: apadrinhamentos,
+gastos com estorno, contribuições dos padrinhos e o portal público.
+
+## Telas por perfil
+
+| Tela | Admin | Voluntário | Veterinário | Sem login |
+|---|---|---|---|---|
+| Painel (`/`) | sim | sim | página própria: pets em tratamento e alertas de vacina | — |
+| Pets, ficha clínica e cartão de vacinação | sim | sim | sim; só ele registra atendimento, aplica vacina e dá alta | — |
+| Vacinas (catálogo) | mantém | consulta | mantém | — |
+| Adoções, adotantes, padrinhos, doações, gastos, contribuições | sim | sim | — | — |
+| Estornar doação ou gasto | sim | — | — | — |
+| Equipe | sim | — | — | — |
+| Prestação de contas (`/transparencia`) | sim | sim | sim | sim |
+
+O portal `/transparencia` fica fora da moldura do painel e não manda token: abre
+igual para quem tem sessão e para quem não tem.
+
 ## Stack
 
 - **React 18 + TypeScript** — componentes e contratos tipados
@@ -21,8 +40,9 @@ npm install
 npm run dev
 ```
 
-O painel abre em `http://localhost:5173`. Entre com o usuário criado pelo seed
-da API (`admin@petmeet.org.br` / `admin123456`).
+O painel abre em `http://localhost:5173`. Entre com um dos usuários criados pelo
+seed da API: `admin@petmeet.org.br` / `admin123456` (admin) ou
+`veterinario@petmeet.org.br` / `vet123456` (veterinário).
 
 ### Como o front acha a API
 
@@ -105,30 +125,25 @@ avisar antes de gastar uma requisição.
 
 | Regra | Onde aparece |
 |---|---|
-| RF16/RN01 — finalizar adoção de pet em tratamento | Ao escolher "Finalizado" em `/adocoes`, aparece a confirmação do acompanhamento médico. Sem marcar, o botão fica desabilitado. |
+| RF16/RN01 — pet em tratamento não finaliza adoção | Ao escolher "Finalizado" em `/adocoes` para um pet em tratamento, a tela avisa que a adoção espera a alta médica e o botão fica desabilitado. A API recusa do mesmo jeito. |
 | RN02/RF17 — um único processo finalizado por pet | O 409 da API vira a mensagem "outro processo deste mesmo pet foi finalizado primeiro". |
 | RF16 — doença identificada | O campo "doença em tratamento" é obrigatório sempre que o estado for "em tratamento médico". |
 | RN05 — valor da doação | O formulário recusa valor zero ou negativo antes de enviar. |
 | RF18/RN08 — validação | Erros 422 do FastAPI são distribuídos campo a campo no formulário. |
 | RNF08 — paginação | Todas as listagens paginam. |
 | RNF09 — upload | Formato e tamanho (5 MB) conferidos antes do envio. |
-| RF21/RN06 — controle de acesso | Um 403 vira "seu perfil não tem permissão para esta ação". |
+| RF21/RN06 — controle de acesso | Um 403 vira "seu perfil não tem permissão para esta ação". Telas de outro perfil, abertas pela barra de endereço, mostram um aviso em vez de chamar a API. |
+| D13 — estorno | Gasto e doação não têm editar nem excluir. O admin estorna com motivo; o original fica marcado e o estorno aparece logo abaixo. |
+| D15 — portal público | O portal mostra gastos por categoria, nunca pela descrição, e nenhum nome de padrinho ou doador. |
 
 ## O que depende do backend para ficar completo
 
 Estes pontos estão prontos na interface até onde a API permite hoje:
 
-- **RF10/RF11 (padrinho ↔ pet)** — não há rota para vincular um padrinho a um
-  pet. O modelo `Apadrinhamento` existe no backend, mas falta serviço e rota.
-  A tela de padrinhos cadastra e mostra doações; o vínculo com pets fica de
-  fora até esse endpoint existir.
 - **Listagem da equipe** — a API tem `POST /usuarios` mas não `GET /usuarios`,
   então a tela "Equipe" só cria contas.
-- **Perfil do usuário logado** — o JWT carrega apenas o e-mail, e não existe
-  `GET /auth/me`. O painel não sabe se quem entrou é admin ou voluntário, então
-  mostra todas as telas e trata o 403 da API quando a ação não é permitida.
-  Incluir `perfil` no token resolveria.
-- **RF22 (auditoria)** — o modelo `LogAuditoria` existe, mas nada é gravado
-  ainda e não há rota de consulta.
+- **RF22 (auditoria)** — a API grava as mudanças de saúde e o registro e o
+  estorno de doações e gastos, mas não tem rota de consulta. O painel não mostra
+  a auditoria.
 - **Filtro de status em processos** — `GET /processos-adocao` filtra por
   `pet_id` e `adotante_id`, não por `status`. O painel filtra em memória.
