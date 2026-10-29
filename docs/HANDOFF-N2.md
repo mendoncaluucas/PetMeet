@@ -1,7 +1,7 @@
 # Handoff — PetMeet v2.0
 
 > Item 4.4 do [Plano de Ação](PLANO-DE-ACAO-N2.md#fase-4--fechamento--2410-a-2910)
-> Redação: Lucas (Backend), para destravar a fase · Revisão: Nicholas (Requisitos) pendente
+> Redação: Lucas (Backend), no lugar do Requisitos
 > O handoff da v1.0, da equipe original, continua em [`HANDOFF.md`](HANDOFF.md)
 
 Este documento é para quem receber o PetMeet depois do N2: o que existe, como começar e onde o projeto morde.
@@ -55,19 +55,21 @@ Cada item abaixo já quebrou alguma coisa durante o N2, ou quebraria se fosse fe
 6. **`frontend/src/api/tipos.ts` é escrito à mão.** Mudou um schema da API, ele muda no mesmo PR.
 7. **Dinheiro é `Decimal`, somado no banco.** Lançamento financeiro não se apaga nem se edita: estorna-se (D13). O portal público usa schemas próprios em `app/esquemas/publico.py`, que não herdam dos internos (A-11).
 8. **Depois de atualizar o código, `docker compose up -d --build`.** Sem `--build`, o container fica com a imagem antiga e entra em loop com "Can't locate revision".
-9. **A regra crítica segue a leitura literal (D1)**: pet em tratamento não finaliza a adoção, sem exceção. A decisão foi do time, sem confirmação do professor; se a leitura dele for outra, o ponto de mudança é `app/servicos/processo_adocao.py`.
+9. **A regra crítica segue a leitura literal (D1), por decisão do time**: pet em tratamento não finaliza a adoção, sem exceção. A versão recebida permitia finalizar marcando o acompanhamento médico em dia; essa exceção saiu, e a coluna `acompanhamento_medico_em_dia` ficou só como histórico. A regra está em `_finalizar`, em `app/servicos/processo_adocao.py`.
 
 ## Matriz de papéis
 
-Papéis do acordo de 24/09/2026 e o que cada um tinha no plano.
+Papéis do acordo de 24/09/2026 e o que cada integrante fez de fato no N2. Como o enunciado lembra, o papel não limita quem executa: várias tarefas de outros papéis ficaram com o backend.
 
-| Papel | Integrante | Itens do plano | Situação na v2.0 |
-|---|---|---|---|
-| Product Owner | Willian Squena | Acordo, decisões D1–D6, aceite dos PRs de evolução, pitch (4.5) | Decisões aplicadas no código, sem registro do PO; pitch em preparação |
-| Engenheiro de Requisitos | Nicholas Scoz dos Santos | `REQUISITOS.md` e documentos herdados (1.11), histórias das evoluções (2.1, 3.1), handoff (4.4) | Histórias e handoff redigidos pelo backend; revisão pendente. `REQUISITOS.md` não existe |
-| Quality Assurance | Kaua Lucindo | Issues de defeito (0.3), roteiros de teste (1.12, 4.1) | Roteiro da v2.0 redigido pelo backend; execução pendente. Defeitos registrados no plano e nos PRs |
-| Desenvolvedor Frontend | Henrique Cordeiro de Oliveira | Telas novas e corrigidas | Telas entraram junto com o backend, nos mesmos PRs |
-| Desenvolvedor Backend | Lucas Rogério Mendonça | API, migrations, testes | PRs #1 a #22 |
-| DevOps | Vinicius Steuernagel | Checks obrigatórios (0.1), lock (0.5), runner (0.6), verificação do zero (4.2), release (4.3) | Checks obrigatórios configurados em 25/09; lock, runner e `.gitattributes` no PR [#12](https://github.com/mendoncaluucas/PetMeet/pull/12); verificação do zero e release na fase 4 |
+| Papel | Integrante | Previsto no plano | O que fez no N2 | Evidência |
+|---|---|---|---|---|
+| Product Owner | Willian Squena | Acordo, decisões D1–D6, aceite dos PRs de evolução, pitch (4.5) | Liderança do projeto, sem participar do desenvolvimento. Fez os slides e apresenta o pitch da `v2.0` | Pitch em PPTX, entregue à parte |
+| Engenheiro de Requisitos | Nicholas Scoz dos Santos | `REQUISITOS.md` e documentos herdados (1.11), histórias das evoluções (2.1, 3.1), revisão do handoff (4.4) | Sem atividade registrada no N2. As histórias e este handoff foram redigidos pelo backend, e o `REQUISITOS.md` não foi criado | — |
+| Quality Assurance | Kaua Lucindo | Issues de defeito (0.3), roteiros de teste (1.12, 4.1) | Ajudou no roteiro de testes da `v2.0` | Fora do repositório. O roteiro foi redigido pelo backend, e a linha dele no registro de execução do [`ROTEIRO-DE-TESTES.md`](ROTEIRO-DE-TESTES.md) está em branco |
+| Desenvolvedor Frontend | Henrique Cordeiro de Oliveira | Telas novas e corrigidas | Ajudou no desenvolvimento do painel | Fora do repositório. As telas entraram nos PRs do backend; nenhum commit é dele |
+| Desenvolvedor Backend | Lucas Rogério Mendonça | API, migrations, testes | Backend, telas e testes de todas as fases; plano de ação, histórias, roteiro de testes e execução preliminar, notas da versão e este handoff; papel de DevOps: checks obrigatórios, lock, runner, release `v2.0` | PRs [#1 a #26](https://github.com/mendoncaluucas/PetMeet/pulls?q=is%3Apr+is%3Amerged); checks configurados em 25/09; release [`v2.0`](https://github.com/mendoncaluucas/PetMeet/releases/tag/v2.0) |
+| DevOps | Vinicius Steuernagel | Checks obrigatórios (0.1), lock (0.5), runner (0.6), verificação do zero (4.2), release (4.3) | Sem atividade registrada no N2. Os itens dele ficaram com o backend | — |
+
+**Gestão das tarefas.** Feita por PR, como no N1: cada item do plano virou um PR com descrição, verificação e checks do CI. A lista está em https://github.com/mendoncaluucas/PetMeet/pulls?q=is%3Apr, e o andamento por fase, na seção 7 do [Plano de Ação](PLANO-DE-ACAO-N2.md#7-acompanhamento).
 
 Os convites ao repositório de Kaua e Willian ficaram pendentes desde 24/09, e os usuários do GitHub de Vinicius e Nicholas não foram informados. Por isso os PRs entraram por bypass de administrador, sem a aprovação de outro integrante que o acordo pede. Os checks obrigatórios do CI rodaram em todos.
