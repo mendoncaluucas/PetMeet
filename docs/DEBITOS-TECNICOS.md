@@ -15,7 +15,7 @@ A lista abaixo é a da equipe original, na `v1.0`. O que o N2 fez com cada item:
 |---|---|---|
 | 1 | RF22 — Auditoria | **Parcial.** Grava as mudanças de saúde do pet e o registro e o estorno de doações e gastos (`app/servicos/auditoria.py`). Faltam processos de adoção, usuários e uma rota de consulta |
 | 2 | Observabilidade, cache e backup | Sem mudança |
-| 3 | Ausência de CI | **Resolvido.** `.github/workflows/ci-cd.yml`: lint, tipos, testes, `alembic check`, seed e build do painel, obrigatórios na `main` e na `develop` |
+| 3 | Ausência de CI | **Resolvido.** O item já estava desatualizado na `v1.0`: o `.github/workflows/ci-cd.yml` entrou em 16/09, um dia antes deste documento, mas falhava na `main` (DEF-01) e não bloqueava merge. No N2 ele ficou verde, ganhou `alembic check`, seed e a `develop`, e os checks passaram a ser obrigatórios na `main` e na `develop` |
 | 4 | RF10/RF11 — Apadrinhamento | **Resolvido** no PR [#19](https://github.com/mendoncaluucas/PetMeet/pull/19): apadrinhamento mensal, com esperado × recebido no [#22](https://github.com/mendoncaluucas/PetMeet/pull/22) |
 | 5 | Fotos só em disco local | Sem mudança |
 | 6 | RF08 — Histórico consolidado | Sem mudança |
