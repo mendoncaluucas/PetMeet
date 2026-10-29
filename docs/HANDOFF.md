@@ -1,6 +1,6 @@
 # Handoff — PetMeet
 
-> **Este é o handoff da `v1.0`, escrito pela equipe original e mantido como registro.** O estado atual, da `v2.0`, está em [`HANDOFF-N2.md`](HANDOFF-N2.md). Vários pontos abaixo já foram resolvidos no N2, como o apadrinhamento e a falta de CI.
+> **Este é o handoff da `v1.0`, escrito pela equipe original e mantido como registro.** O estado atual, da `v2.0`, está em [`HANDOFF-N2.md`](HANDOFF-N2.md). Vários pontos abaixo já foram resolvidos no N2, como o apadrinhamento e o CI, que existia mas falhava e não bloqueava merge.
 
 > Documento de transição para o time que avaliar a viabilidade de receber este projeto. Reúne o essencial para decidir e, decidindo receber, começar a trabalhar sem depender de quem escreveu o código.
 

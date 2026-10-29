@@ -11,7 +11,7 @@ O enunciado descreve o problema da ONG como *dificuldade em controlar fichas mé
 |---|---|---|
 | Testes automatizados | 20 | 300 |
 | Migrations | 1 | 9 |
-| CI | não havia | lint, tipos, testes, `alembic check`, seed e build do painel, obrigatórios na `main` e na `develop` |
+| CI | existia, mas vermelho na `main` (DEF-01) e sem bloquear merge | verde; lint, tipos, testes, `alembic check`, seed e build do painel, obrigatórios na `main` e na `develop` |
 | Defeitos corrigidos | — | 15 (DEF-01 a DEF-15) |
 
 ## Evolução 1 — ficha clínica e cartão de vacinação digital com alertas
